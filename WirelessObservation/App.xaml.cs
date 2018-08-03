@@ -5,6 +5,7 @@ using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using WirelessObservation.Entity;
 
 namespace WirelessObservation
 {
@@ -42,9 +43,25 @@ namespace WirelessObservation
         public static string DataStoragePath = DocumentPath + "\\DataStorage";
 
         /*系统设置*/
-        public static string Setting = Vendor.XmlHelper.DeserializeFromXml<>(SettingPath);
+        public static Setting Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
 
         #endregion
+
+        /// <summary>
+        /// 程序起始点
+        /// </summary>
+        /// <param name="e"></param>
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            Current.ShutdownMode = ShutdownMode.OnMainWindowClose;      // 设置程序中断模式
+
+
+            // 初始化文件夹
+            if (!System.IO.Directory.Exists(ProgramData)) System.IO.Directory.CreateDirectory(ProgramData);
+            if (!System.IO.Directory.Exists(DocumentPath)) System.IO.Directory.CreateDirectory(DocumentPath);
+            if (!System.IO.Directory.Exists(DataStoragePath)) System.IO.Directory.CreateDirectory(DocumentPath);
+
+        }
 
     }
 }

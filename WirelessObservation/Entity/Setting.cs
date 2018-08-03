@@ -16,20 +16,20 @@ namespace WirelessObservation.Entity
         //[XmlIgnore]
         //public object Parent;
 
-        [XmlElement(ElementName = "Collect")]
-        public Collect Collect { get; set; }
+        //[XmlElement(ElementName = "Collect")]
+        //public Collect Collect { get; set; }
 
         [XmlElement(ElementName = "Port")]
         public Port Port { get; set; }
 
-        [XmlElement(ElementName = "Data")]
-        public Data Data { get; set; }
+        //[XmlElement(ElementName = "Data")]
+        //public Data Data { get; set; }
     }
 
     public class Port
     {
         //[XmlIgnore]
-        //public Setting Parent = new Setting();
+        // public Setting Parent = new Setting();
         [XmlElement(ElementName = "PortName")]
         public string PortName { get; set; }
 
@@ -41,6 +41,9 @@ namespace WirelessObservation.Entity
 
         [XmlElement(ElementName = "Stop")]
         public int Stop { get; set; }
+
+        [XmlElement(ElementName = "Parity")]
+        public int Parity { get; set; }
 
         [XmlArray(ElementName = "PjList")]
         public ObservableCollection<Pj> PjList { get; set; }

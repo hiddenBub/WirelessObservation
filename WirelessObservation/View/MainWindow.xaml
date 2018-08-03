@@ -1,18 +1,18 @@
-﻿<Window x:Class="WirelessObservation.MainWindow"
+﻿<Window x:Class="WirelessObservation.View.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:WirelessObservation"
+        xmlns:local="clr-namespace:WirelessObservation.View"
         mc:Ignorable="d"
         Title="数据实时监测系统" Height="450" Width="800">
     <Grid>
         <DockPanel>
             <ToolBar DockPanel.Dock="Top">
-                <CheckBox Name="GatherCB" Content="开始采集" Click="GatherCB_Click" ></CheckBox>
-                <Button Name="ExportBtn" Content="导出数据" Click="ExportBtn_Click"></Button>
-                <Button Name="HistoryBtn" Content="历史数据" Click="HistoryBtn_Click"/>
-                <Button Name="SettingBtn" Content="设置" Click="SettingBtn_Click"/>
+                <CheckBox Name="GatherCB" Content="开始采集" Checked="GatherCB_Checked"></CheckBox>
+                <Button Name="ExportBtn" Content="导出数据" VerticalAlignment="Stretch" Click="ExportBtn_Click" />
+                <Button Name="HistoryBtn" Content="历史数据" />
+                <Button Name="SettingBtn" Content="设置" />
             </ToolBar>
             <Grid x:Name="Chart" DockPanel.Dock="Top" Margin="5" >
                 
