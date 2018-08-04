@@ -43,7 +43,7 @@ namespace WirelessObservation
         public static string DataStoragePath = DocumentPath + "\\DataStorage";
 
         /*系统设置*/
-        public static Setting Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
+        public static Setting Setting;
 
         #endregion
 
@@ -60,7 +60,38 @@ namespace WirelessObservation
             if (!System.IO.Directory.Exists(ProgramData)) System.IO.Directory.CreateDirectory(ProgramData);
             if (!System.IO.Directory.Exists(DocumentPath)) System.IO.Directory.CreateDirectory(DocumentPath);
             if (!System.IO.Directory.Exists(DataStoragePath)) System.IO.Directory.CreateDirectory(DocumentPath);
+            if (!System.IO.File.Exists(SettingPath))
+            {
+                Setting setting = new Setting
+                {
+                    Collect = new Collect
+                    {
+                        Input = 1,
+                        Output = 1,
+                    },
+                };
+                Vendor.XmlHelper.SerializeToXml(SettingPath, setting);
+            }
+            Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
 
+            if (!System.IO.File.Exists(ProgramData + "\\source.dat"))
+            {
+                System.IO.StreamWriter sw = new System.IO.StreamWriter(DataStoragePath + "\\source.dat", false, System.Text.Encoding.UTF8);
+                List<string> header = new List<string>
+                {
+                    "\"" + string.Join("\",\"", new string[] { "记录数","时间","风速", "风向"}) + "\"",
+                    "\"" + string.Join("\",\"", new string[] { "RN", "TS", "m/s","°" }) + "\"",
+                };
+                // 将文件头中所有数据写入文件
+                foreach (string str in header)
+                {
+                    // 写入一整行
+                    sw.WriteLine(str);
+                }
+
+                // 关闭文件
+                sw.Close();
+            }
         }
 
     }
