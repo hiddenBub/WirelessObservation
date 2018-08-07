@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace WirelessObservation.Entity
 {
-    class DataEntity
+    public class DataEntity
     {
         public string Time;
-        public decimal WindSpeed;
-        public int WindDir;
-        public DataEntity(string time, decimal speed, int dir)
+        public double WindSpeed = 0;
+        public double WindDir = 0;
+        public DataEntity(string time, double speed, double dir)
         {
             Time = time;
             WindDir = dir;

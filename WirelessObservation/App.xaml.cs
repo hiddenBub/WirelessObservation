@@ -74,7 +74,7 @@ namespace WirelessObservation
             }
             Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
 
-            if (!System.IO.File.Exists(ProgramData + "\\source.dat"))
+            if (!System.IO.File.Exists(DataStoragePath + "\\source.dat"))
             {
                 System.IO.StreamWriter sw = new System.IO.StreamWriter(DataStoragePath + "\\source.dat", false, System.Text.Encoding.UTF8);
                 List<string> header = new List<string>
