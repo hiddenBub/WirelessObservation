@@ -16,6 +16,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using LiveCharts.Wpf;
 using LiveCharts;
+using LiveCharts.Geared;
 
 namespace WirelessObservation.View
 {
@@ -113,23 +114,83 @@ namespace WirelessObservation.View
             if (name != "")
             {
                 Console.WriteLine(name);
-            }
-
-            if ((bool)GatherCB.IsChecked)
-            {
                 controller.OpenSerialPort(name, "9600",
                     "8", "One", "None",
                     "None");
             }
             else
             {
-                controller.CloseSerialPort();
+                GatherCB.IsChecked = false;
+                MessageBox.Show("未检测到无线接收模块" ,"提示");
+
+                
             }
+
+            
+           
+        }
+
+        private void GatherCB_Unchecked(object sender, RoutedEventArgs e)
+        {
+            controller.CloseSerialPort();
         }
 
         private void ExportBtn_Click(object sender, RoutedEventArgs e)
         {
+            if (IsGather)
+            {
+                MessageBox.Show("数据采集中，无法导出数据，请先停止采集", "提示");
+                return;
+            }
+            Microsoft.Win32.SaveFileDialog saveFileDialog = new Microsoft.Win32.SaveFileDialog();
+            // 初始化文件夹有设置则使用初始化文件夹
+            if (App.Setting.Data.StoragePath != "")
+            {
+                saveFileDialog.InitialDirectory = App.Setting.Data.StoragePath;
+            }
+            saveFileDialog.Filter = "CSV文件 | *.csv|所有文件|*.*";
+            saveFileDialog.ShowDialog();
+            
+            // 获取文件构成的各部分字符串
+            string rd = saveFileDialog.FileName;
+            if (rd != "")
+            {
+                string fileName = System.IO.Path.GetFileNameWithoutExtension(rd);
+                string extension = "csv";
+                string path = System.IO.Path.GetDirectoryName(rd);
+                // 存储数据至配置
+                App.Setting.Data.StoragePath = path;
+                // 存储至文件
+                Vendor.XmlHelper.SerializeToXml(App.SettingPath, App.Setting);
+                System.IO.StreamWriter sw = new System.IO.StreamWriter(path + "\\" + fileName + "." + extension, false, Encoding.UTF8);
+                List<string> header = new List<string>
+                {
+                    "\"" + string.Join("\",\"", new string[] { "记录数","时间","风速", "风向"}) + "\"",
+                    "\"" + string.Join("\",\"", new string[] { "RN", "TS", "m/s","°" }) + "\"",
+                };
+                // 将文件头中所有数据写入文件
+                foreach (string str in header)
+                {
+                    // 写入一整行
+                    sw.WriteLine(str);
+                }
+                int min = int.MaxValue;
+                for (int index = 0; index < SeriesCollection.Count; index++)
+                {
+                    min = Math.Min(SeriesCollection[index].Values.Count, min);
+                }
 
+                //遍历当前数据并写入文件
+                for (int i = 0; i < min; i++)
+                {
+                    string data = (i + 1).ToString() + ",\"" + Labels[(int)i] + "\"," + SeriesCollection[0].Values[i] + "," + SeriesCollection[1].Values[i];
+                    sw.WriteLine(data);
+                }
+
+                // 关闭文件
+                sw.Close();
+            }
+            
         }
 
         /// <summary>
@@ -144,14 +205,14 @@ namespace WirelessObservation.View
             //    this.Dispatcher.Invoke(new Action<Object, SerialPortEventArgs>(OpenComEvent), sender, e);
             //    return;
             //}
-            
+
 
             if (e.isOpend)  //Open successfully
             {
                 GatherCB.Content = "结束采集";      // 变更按钮显示
                                                 // 现在时间
                 startTime = DateTime.Now;
-                
+                IsGather = true;
                 string[] Datalist = System.IO.File.ReadAllLines(App.DataStoragePath + "\\source.dat");
                 List<string> header = Datalist.Take(2).ToList();
 
@@ -198,6 +259,7 @@ namespace WirelessObservation.View
 
                                 ));
                 DataTemp.Clear();
+                isGather = false;
             }
         }
 
@@ -223,12 +285,15 @@ namespace WirelessObservation.View
                     for (int startIndex = 2; startIndex < count; startIndex++)
                     {
 
-                        LineSeries ls = new LineSeries
+                        GLineSeries ls = new GLineSeries
                         {
                             Title = data[startIndex],// 设置集合标题
-                            Values = new ChartValues<double> { },                // 初始化数据集
-                            PointGeometry = DefaultGeometries.None,             // 取消点的图形标注
-                            ScalesYAt = startIndex - 2
+                            Values = new GearedValues<double> { Quality = Quality.Low},                // 初始化数据集
+                            //PointGeometry = DefaultGeometries.None,             // 取消点的图形标注
+                            ScalesYAt = startIndex - 2,
+                            Fill = Brushes.Transparent,
+                            StrokeThickness = .5,
+                            PointGeometry = null //use a null geometry when you have many series
                         };
 
                         if (SeriesCollection.Count > 0)
@@ -270,6 +335,8 @@ namespace WirelessObservation.View
                     {
                         Series = SeriesCollection,
                         LegendLocation = LegendLocation.Right,
+                        Zoom = ZoomingOptions.X,
+                        DataTooltip = null,
                         AxisY = new AxesCollection
                 {
                     new Axis{
@@ -337,98 +404,117 @@ namespace WirelessObservation.View
         /// <param name="e"></param>
         public void ComReceiveDataEvent(Object sender, SerialPortEventArgs e)
         {
-            
-            // 数据原型
-            string prototype = Encoding.Default.GetString(e.receivedBytes);
-            // 获取被截断的数据
-            List<string> split = prototype.Split(new char[] { ',', '=' }).ToList();
-            // 现在时间
-            DateTime now = DateTime.Now;
-            
-            int input = (int)App.Setting.Collect.Input;
-            // 输出频率
-            
-            int output = (int)App.Setting.Collect.Output;
-            // 输入时间初始化
-            //ChartStartFormat(now,)
-            string timeFormat = now.ToString("yyyy-MM-dd HH:mm:ss");
-            // 获取文件总行数
-            string[] lines = System.IO.File.ReadAllLines(App.DataStoragePath + "\\source.dat");
-            // 布置当前数据编号
-            int count = lines.Length - 1;
-            // 数据头
-            List<string> font = new List<string> { count.ToString(), "\""+timeFormat+"\"" };
-            // 截取出有用数据断
-            split = split.Skip(2).Take(2).ToList();
-            // 插入到数据数组头部
-            split.InsertRange(0, font);
-            
-            char[] sp = { ',', '"', '\r', '\n' };
-            
-            // 取得X轴中最后一个时间戳
-            if (labels.Count > 0)
+            if (this.CheckAccess())
             {
-                
-                string lastTimeStamp = labels[(labels.Count) - 1];
-                
-                DateTime dt = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second);
-                Console.WriteLine("数据时间差："+dt.CompareTo(Convert.ToDateTime(lastTimeStamp)));
-                // 当前数据中的时间与X轴的计量点中坐标轴时间较大时
-                if (dt.CompareTo(Convert.ToDateTime(lastTimeStamp)) <= 0)
+                try
                 {
-                    // 获取临时数据存储数组项目数量                                
-                    int Dcount = DataTemp.Count;
+                    Dispatcher.Invoke(new Action<Object, SerialPortEventArgs>(ComReceiveDataEvent), sender, e);
+                }
+                catch (System.Exception)
+                {
+                    //disable form destroy exception
+                }
+                return;
+            }
+            try
+            {
+                // 数据原型
+                string prototype = Encoding.Default.GetString(e.receivedBytes);
+                // 数据不以$开始时，数据不包含,时丢弃数据
+                if (prototype.IndexOf("$") != 0 || !prototype.Contains(","))
+                {
+                    return;
+                }
+                // 获取被截断的数据
+                List<string> split = prototype.Split(new char[] { ',', '=' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                // 正确的数据应该分割出来是5段字符串数组
+                if (split.Count != 5)
+                {
+                    return;
+                }
+                // 现在时间
+                DateTime now = DateTime.Now;
+
+                int input   = (int)App.Setting.Collect.Input;
+                // 输出频率
+
+                int output  = (int)App.Setting.Collect.Output;
+                // 输入时间初始化
+                string timeFormat = now.ToString("yyyy-MM-dd HH:mm:ss");
+                // 获取文件总行数
+                string[] lines = System.IO.File.ReadAllLines(App.DataStoragePath + "\\source.dat");
+                // 布置当前数据编号
+                int count = lines.Length - 1;
+                // 数据头
+                List<string> font = new List<string> { count.ToString(), "\"" + timeFormat + "\"" };
+                // 截取出有用数据断
+                split = split.Skip(2).Take(2).ToList();
+                // 插入到数据数组头部
+                split.InsertRange(0, font);
+
+
+                // 取得X轴中最后一个时间戳
+
+                string lastTimeStamp = labels[(labels.Count) - 1];
+
+                DateTime dt = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, now.Second);
+                Console.WriteLine("数据时间差：" + dt.CompareTo(Convert.ToDateTime(lastTimeStamp)));
+                // 当前数据中的时间与X轴的计量点中坐标轴时间较大时
+
+                // 获取临时数据存储数组项目数量                                
+                int Dcount = DataTemp.Count;
+                if (Dcount > 0)
+                {
                     // 暂存最后一条缓存数据
                     Entity.DataEntity LastItem = DataTemp[Dcount - 1];
                     Console.WriteLine("标签数量：" + Labels.Count);
                     if (double.TryParse(split[2], out double x)
                         && int.TryParse(split[3], out int y)
-                        && (Convert.ToDateTime(LastItem.Time).CompareTo(dt) == 0 ))
+                        )
                     {
                         LastItem.WindSpeed = x;
                         LastItem.WindDir = y;
-                        
+                        SeriesCollection[0].Values.Add(LastItem.WindSpeed);
+                        SeriesCollection[1].Values.Add(LastItem.WindDir);
+
+                        // 将数据转换为字符串
+                        string str = string.Join(",", split.ToArray());
+                        // 
+                        System.IO.StreamWriter sw = new System.IO.StreamWriter(App.DataStoragePath + "\\source.dat", true, Encoding.UTF8);
+
+                        // 写入一整行
+                        sw.WriteLine(str);
+
+
+                        // 关闭文件
+                        sw.Close();
                     }
-
-
-
-
-
-
-                    // 当两个相等时获取
-                    if (dt.CompareTo(Convert.ToDateTime(lastTimeStamp)) == 0)
+                    else
                     {
-                        // 使用均值方法获取均值
-                        Entity.DataEntity Item = GetAvg(DataTemp);
-                        SeriesCollection[0].Values.Add(Item.WindSpeed);
-                        SeriesCollection[1].Values.Add(Item.WindDir);
-                        // 将新的坐标轴时间加入Labels数组
-
-                        Labels.Add(Convert.ToDateTime(lastTimeStamp).AddSeconds(output).ToString());
-
-
-                        // 清理数据缓存，准备下次数据接入
-                        DataTemp.Clear();
-                        
-
+                        Labels.RemoveAt(Labels.Count - 1);
                     }
-                    string first_temp = now.AddSeconds(input).ToString("yyyy-MM-dd HH:mm:ss");
+
+                    DataTemp.Clear();
+                    Labels.Add(Convert.ToDateTime(lastTimeStamp).AddSeconds(1).ToString("yyyy-MM-dd HH:mm:ss"));
+                    // 数据容量超过3小时即60 * 60 * 3个数据点
+                    int capacity = 12 * 60 * 60;
+                    if (SeriesCollection[0].Values.Count >= capacity)
+                    {
+                        SeriesCollection[0].Values.RemoveAt(0);
+                        SeriesCollection[1].Values.RemoveAt(0);
+                        Labels.RemoveAt(0);
+                    }
+                    string first_temp = now.AddSeconds(1).ToString("yyyy-MM-dd HH:mm:ss");
                     DataTemp = AddItem(DataTemp, new Entity.DataEntity(first_temp), Dcount);
                 }
             }
+            catch(Exception exc)
+            {
+                return;
+            }
             
-            // 将数据转换为字符串
-            string str = string.Join(",", split.ToArray());
-            // 
-            System.IO.StreamWriter sw = new System.IO.StreamWriter(App.DataStoragePath + "\\source.dat", true, Encoding.UTF8);
             
-            // 写入一整行
-            sw.WriteLine(str);
-            
-
-            // 关闭文件
-            sw.Close();
-            Console.WriteLine(str);
+        
         }
 
 
@@ -602,5 +688,90 @@ namespace WirelessObservation.View
             return variable;
         }
 
+        private void HistoryBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (IsGather)
+            {
+                MessageBox.Show("数据采集中，无法获取数据，请先停止采集", "提示");
+                return;
+            }
+            HistoryData historyData = new HistoryData();
+            historyData.ShowDialog();
+            if (historyData.DialogResult == true)
+            {
+                string[] Datalist = System.IO.File.ReadAllLines(App.DataStoragePath + "\\source.dat");
+                List<string> header = Datalist.Take(2).ToList();
+
+                InitChart(header);
+                //string filepath = GetFileName(DataType.CalibrationData,(DateTime)GatherTimer[0],GatherTimer[1]);
+
+
+
+
+
+                string[] dataBody = Datalist.Skip(4).ToArray();
+
+
+
+                // 遍历源数据，并按照需校准数据进行调整
+                foreach (string line in dataBody)
+                {
+                    // 存储当前行
+                    string a = line;
+                    // 设置分割字符
+                    char[] sp = { ',', '"', '\r', '\n' };
+                    // 存储数据型
+                    string[] datas = a.Split(sp, StringSplitOptions.RemoveEmptyEntries);
+                    // 如果时间数据越界中断循环
+                    if (endTime != null && (DateTime.Compare(Convert.ToDateTime(endTime), Convert.ToDateTime(datas[1])) < 0)) break;
+
+                    // 获取临时数据存储数组项目数量                                
+                    int count = datas.Length;
+                    for (int dli = 2; dli < count; dli++)
+                    {
+                        if (!decimal.TryParse(datas[dli], out decimal x))
+                        {
+                            if (dli > 2)
+                            {
+                                for (var i = dli; i > 2; i--)
+                                {
+                                    SeriesCollection[i - 2].Values.RemoveAt(SeriesCollection[i - 2].Values.Count - 1);
+                                }
+                            }
+                            break;
+                        }
+                        SeriesCollection[dli - 2].Values.Add(Convert.ToDouble(datas[dli]));
+
+                    }
+
+                    // 将新的坐标轴时间加入Labels数组
+
+                    Labels.Add(datas[1]);
+                }
+            }
+        }
+
+        private void HelpBtn_Click(object sender, RoutedEventArgs e)
+        {
+            string des = "当前版本：" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() + "\r\n" +
+                "(1) 使用本软件请确认已插入无线接收模块\r\n" +
+                "(2) 点击\"开始采集\"开始本次采集\r\n" +
+                "(3) 点击\"结束采集\"结束本次采集\r\n" +
+                "(4) 点击\"导出数据\"导出本次采集数据，导出数据只能在结束采集后使用\r\n" +
+                "(5) 点击\"历史数据\"可根据历史缓存的数据进行查看，历史数据只能在结束采集后使用\r\n" +
+                "如有疑问请联系：wangwei@topflagtec.com 王玮\r\n\r\n" +
+                "北京旗云创科科技有限责任公司" +
+                "BEIJING TOP FLAG TECHNOLOGY CO., LTD\r\n" +
+                "地址：北京市海淀区中关村南三街6号中科资源大厦（100080）\r\n" +
+                "电话：010 - 6142 - 6159，传真：010 - 6072 - 0351\r\n" +
+                "网址：www.topflagtec.com\r\n";
+            MessageBox.Show(des, "帮助",MessageBoxButton.OK);
+        }
+
+        private void test_Click(object sender, RoutedEventArgs e)
+        {
+            test t = new test();
+            t.ShowDialog();
+        }
     }
 }

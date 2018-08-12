@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using IWshRuntimeLibrary;
 using WirelessObservation.Entity;
 
 namespace WirelessObservation
@@ -17,15 +19,16 @@ namespace WirelessObservation
         #region 系统变量
 
         /*路径设置*/
+        public static string ProjectName = System.Reflection.MethodBase.GetCurrentMethod().DeclaringType.Namespace;
         /// <summary>
         /// 程序数据路径
         /// </summary>
-        public static string ProgramData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\TopFlagTec\\SolarCalibration";
+        public static string ProgramData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\TopFlagTec\\" + ProjectName;
 
         /// <summary>
         /// 文档路径
         /// </summary>
-        public static string DocumentPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\Solar Calibration";
+        public static string DocumentPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "\\TopFlagTec\\" + ProjectName;
 
         /// <summary>
         /// 配置文件路径
@@ -57,11 +60,27 @@ namespace WirelessObservation
 
 
             // 初始化文件夹
-            if (!System.IO.Directory.Exists(ProgramData)) System.IO.Directory.CreateDirectory(ProgramData);
-            if (!System.IO.Directory.Exists(DocumentPath)) System.IO.Directory.CreateDirectory(DocumentPath);
-            if (!System.IO.Directory.Exists(DataStoragePath)) System.IO.Directory.CreateDirectory(DocumentPath);
+            if (!Directory.Exists(ProgramData)) Directory.CreateDirectory(ProgramData);
+            if (!Directory.Exists(DocumentPath)) Directory.CreateDirectory(DocumentPath);
+            if (!Directory.Exists(DataStoragePath)) Directory.CreateDirectory(DataStoragePath);
             if (!System.IO.File.Exists(SettingPath))
             {
+
+                var desktop = Vendor.Shortcut.GetDeskDir();
+
+
+                string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                WshShell shell = new WshShell();
+
+                string shotcutName = "无线采集系统.lnk";
+                string shortcutAddress = Path.Combine(desktopPath, shotcutName);
+                IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(shortcutAddress);
+                shortcut.Description = "无线采集系统";
+                //shortcut.Hotkey = "Ctrl+Shift+N";
+                shortcut.TargetPath = AppDomain.CurrentDomain.BaseDirectory + ProjectName + ".exe";
+                shortcut.Save();
+
+                
                 Setting setting = new Setting
                 {
                     Collect = new Collect
@@ -69,8 +88,13 @@ namespace WirelessObservation
                         Input = 1,
                         Output = 1,
                     },
+                    Data = new Data
+                    {
+                        StoragePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                    }
                 };
                 Vendor.XmlHelper.SerializeToXml(SettingPath, setting);
+                
             }
             Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
 

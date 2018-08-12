@@ -17,8 +17,17 @@ namespace WirelessObservation.Entity
         //[XmlElement(ElementName = "Port")]
         //public Port Port { get; set; }
 
-        //[XmlElement(ElementName = "Data")]
-        //public Data Data { get; set; }
+        [XmlElement(ElementName = "Data")]
+        public Data Data { get; set; }
+    }
+
+    public class Data
+    {
+        //[XmlIgnore]
+        [XmlElement(ElementName = "StoragePath")]
+        private string storagePath = "";
+
+        public string StoragePath { get => storagePath; set => storagePath = value; }
     }
 
     //public class Port

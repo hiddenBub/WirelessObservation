@@ -5,14 +5,16 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WirelessObservation.View"
         mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
         Title="数据实时监测系统" Height="450" Width="800">
     <Grid>
         <DockPanel>
             <ToolBar DockPanel.Dock="Top">
-                <CheckBox Name="GatherCB" Content="开始采集" Checked="GatherCB_Checked"></CheckBox>
-                <Button Name="ExportBtn" Content="导出数据" VerticalAlignment="Stretch" Click="ExportBtn_Click" />
-                <Button Name="HistoryBtn" Content="历史数据" />
-                <Button Name="SettingBtn" Content="设置" />
+                <CheckBox Name="GatherCB" Content="开始采集" Checked="GatherCB_Checked" Unchecked="GatherCB_Unchecked"></CheckBox>
+                <Button Name="ExportBtn" Content="导出数据" Click="ExportBtn_Click" />
+                <Button Name="HistoryBtn" Content="历史数据" Click="HistoryBtn_Click" />
+                <Button Name="HelpBtn" Content="帮助" Click="HelpBtn_Click" />
+                <!--<Button Name="test" Content="test" Click="test_Click"></Button>-->
             </ToolBar>
             <Grid x:Name="Chart" DockPanel.Dock="Top" Margin="5" >
                 
