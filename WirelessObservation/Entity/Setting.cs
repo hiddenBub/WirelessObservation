@@ -24,10 +24,28 @@ namespace WirelessObservation.Entity
     public class Data
     {
         //[XmlIgnore]
-        [XmlElement(ElementName = "StoragePath")]
-        private string storagePath = "";
+        [XmlElement(ElementName = "DataPath")]  // 数据存储位置
+        private string dataPath = "";
 
-        public string StoragePath { get => storagePath; set => storagePath = value; }
+        public string DataPath { get => dataPath; set => dataPath = value; }
+
+        [XmlElement (ElementName = "StorePath")]    // 输出数据存储位置
+        private string storePath = "";
+
+        public string StorePath { get => storePath; set => storePath = value; }
+
+        [XmlElement(ElementName = "RecentlyFile")]    // 最近操作的文件
+        private string recentlyFile = "";
+
+        public string RecentlyFile { get => recentlyFile; set => recentlyFile = value; }
+
+        [XmlElement(ElementName = "FileOffest")]    // 文件偏移量
+        private long fileOffset = 0;
+
+        public long FileOffest { get => fileOffset; set => fileOffset = value; }
+
+
+
     }
 
     //public class Port

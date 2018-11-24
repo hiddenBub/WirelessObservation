@@ -4,10 +4,14 @@ using System.Configuration;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
 using IWshRuntimeLibrary;
+using System.Reflection;
 using WirelessObservation.Entity;
+using CefSharp.Wpf;
+using CefSharp;
 
 namespace WirelessObservation
 {
@@ -63,6 +67,7 @@ namespace WirelessObservation
             if (!Directory.Exists(ProgramData)) Directory.CreateDirectory(ProgramData);
             if (!Directory.Exists(DocumentPath)) Directory.CreateDirectory(DocumentPath);
             if (!Directory.Exists(DataStoragePath)) Directory.CreateDirectory(DataStoragePath);
+            // 首次启动时没有配置文件初始化配置文件及快捷方式
             if (!System.IO.File.Exists(SettingPath))
             {
 
@@ -80,7 +85,7 @@ namespace WirelessObservation
                 shortcut.TargetPath = AppDomain.CurrentDomain.BaseDirectory + ProjectName + ".exe";
                 shortcut.Save();
 
-                
+
                 Setting setting = new Setting
                 {
                     Collect = new Collect
@@ -90,7 +95,10 @@ namespace WirelessObservation
                     },
                     Data = new Data
                     {
-                        StoragePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+                        DataPath = "",
+                        StorePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                        RecentlyFile = "",
+                        FileOffest = 0,
                     }
                 };
                 Vendor.XmlHelper.SerializeToXml(SettingPath, setting);
@@ -116,6 +124,47 @@ namespace WirelessObservation
                 // 关闭文件
                 sw.Close();
             }
+        }
+
+        public App()
+        {
+            //Add Custom assembly resolver
+            AppDomain.CurrentDomain.AssemblyResolve += Resolver;
+
+            //Any CefSharp references have to be in another method with NonInlining
+            // attribute so the assembly rolver has time to do it's thing.
+            InitializeCefSharp();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void InitializeCefSharp()
+        {
+            //Perform dependency check to make sure all relevant resources are in our output directory.
+            var settings = new CefSettings();
+            settings.BrowserSubprocessPath = Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase,
+                                                   Environment.Is64BitProcess ? "x64" : "x86",
+                                                   "CefSharp.BrowserSubprocess.exe");
+
+            Cef.Initialize(settings, performDependencyCheck: false, browserProcessHandler: null);
+        }
+
+        // Will attempt to load missing assembly from either x86 or x64 subdir
+        // Required by CefSharp to load the unmanaged dependencies when running using AnyCPU
+        private static Assembly Resolver(object sender, ResolveEventArgs args)
+        {
+            if (args.Name.StartsWith("CefSharp"))
+            {
+                string assemblyName = args.Name.Split(new[] { ',' }, 2)[0] + ".dll";
+                string archSpecificPath = Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase,
+                                                       Environment.Is64BitProcess ? "x64" : "x86",
+                                                       assemblyName);
+
+                return System.IO.File.Exists(archSpecificPath)
+                           ? Assembly.LoadFile(archSpecificPath)
+                           : null;
+            }
+
+            return null;
         }
 
     }

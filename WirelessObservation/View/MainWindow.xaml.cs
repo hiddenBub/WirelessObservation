@@ -17,6 +17,11 @@ using System.Windows.Threading;
 using LiveCharts.Wpf;
 using LiveCharts;
 using LiveCharts.Geared;
+using Microsoft.Win32;
+using WirelessObservation.Vendor;
+using System.IO;
+using Microsoft.WindowsAPICodePack.Dialogs;
+using WirelessObservation.Entity;
 
 namespace WirelessObservation.View
 {
@@ -87,6 +92,7 @@ namespace WirelessObservation.View
         /// 风速
         /// </summary>
         private List<Func<double, string>> yFormatter = new List<Func<double, string>>();
+        CefSharp.Wpf.ChromiumWebBrowser browser;
 
         #endregion
 
@@ -96,6 +102,54 @@ namespace WirelessObservation.View
         {
             InitializeComponent();
             controller = new IController(this);
+            
+            browser = new CefSharp.Wpf.ChromiumWebBrowser();
+            // 设置浏览器浏览的html文件
+            string HtmlPath = encoding(Environment.CurrentDirectory + "\\View\\web\\echarts.html");
+            browser.Address = HtmlPath;
+            // 将浏览器对象加入chart容器中
+            Chart.Children.Add(browser);
+            CefSharp.CefSharpSettings.LegacyJavascriptBindingEnabled = true;//新cefsharp绑定需要优先申明
+            // 设置异步的JS-C#委托事件
+            browser.RegisterAsyncJsObject("boud", new JsEvent(), new CefSharp.BindingOptions() { CamelCaseJavascriptNames = false });
+            // 增加缩放事件
+            this.SizeChanged += new SizeChangedEventHandler(MainWindow_Resize);
+
+            // 处理上次结束之后到本次未格式化数据
+
+        }
+
+
+
+        /// <summary>
+        /// 缩放界面时的逻辑
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void MainWindow_Resize(object sender, System.EventArgs e)
+        {
+            // 最大化及非初始化扩大页面时重载浏览器实例
+            if (this.WindowState == WindowState.Maximized)
+            {
+                browser.GetBrowser().Reload();
+            }
+            else if(this.IsLoaded == true && this.WindowState == WindowState.Normal)
+            {
+                browser.GetBrowser().Reload();
+            }
+        }
+
+        /// <summary>
+        /// 将特殊字符转义
+        /// </summary>
+        /// <param name="Meaning">需转义的字符串</param>
+        /// <returns></returns>
+        static public string encoding(string Meaning)
+        {
+            //普通字符变换成转义字符
+            Meaning = Meaning.Replace("%", "%25");
+            Meaning = Meaning.Replace("#", "%23");
+            return Meaning;
         }
 
         /// <summary>
@@ -122,12 +176,7 @@ namespace WirelessObservation.View
             {
                 GatherCB.IsChecked = false;
                 MessageBox.Show("未检测到无线接收模块" ,"提示");
-
-                
             }
-
-            
-           
         }
 
         private void GatherCB_Unchecked(object sender, RoutedEventArgs e)
@@ -144,9 +193,9 @@ namespace WirelessObservation.View
             }
             Microsoft.Win32.SaveFileDialog saveFileDialog = new Microsoft.Win32.SaveFileDialog();
             // 初始化文件夹有设置则使用初始化文件夹
-            if (App.Setting.Data.StoragePath != "")
+            if (App.Setting.Data.StorePath != "")
             {
-                saveFileDialog.InitialDirectory = App.Setting.Data.StoragePath;
+                saveFileDialog.InitialDirectory = App.Setting.Data.StorePath;
             }
             saveFileDialog.Filter = "CSV文件 | *.csv|所有文件|*.*";
             saveFileDialog.ShowDialog();
@@ -159,7 +208,7 @@ namespace WirelessObservation.View
                 string extension = "csv";
                 string path = System.IO.Path.GetDirectoryName(rd);
                 // 存储数据至配置
-                App.Setting.Data.StoragePath = path;
+                App.Setting.Data.StorePath = path;
                 // 存储至文件
                 Vendor.XmlHelper.SerializeToXml(App.SettingPath, App.Setting);
                 System.IO.StreamWriter sw = new System.IO.StreamWriter(path + "\\" + fileName + "." + extension, false, Encoding.UTF8);
@@ -220,7 +269,7 @@ namespace WirelessObservation.View
                 // 采集频率
                 int input = (int)App.Setting.Collect.Input;
                 string first_temp = ChartStartFormat(startTime, input).ToString("yyyy-MM-dd HH:mm:ss");
-                DataTemp = AddItem(DataTemp, new Entity.DataEntity(first_temp));
+                DataTemp = StringHelper.AddItem(DataTemp, new Entity.DataEntity(first_temp));
                 // 输出频率
 
                 int output = (int)App.Setting.Collect.Output;
@@ -322,13 +371,13 @@ namespace WirelessObservation.View
                             }
                         }
                         // Y轴的轴标签显示结构
-                        YFormatter = AddItem(YFormatter, value => value.ToString("N"), startIndex - 2);
+                        YFormatter = StringHelper.AddItem(YFormatter, value => value.ToString("N"), startIndex - 2);
                     }
-                    Labels = AddItem(Labels, string.Empty);
+                    Labels = StringHelper.AddItem(Labels, string.Empty);
                     // 判断是否需要初始化标签
                     if (isAddLabel)
                     {
-                        Labels = AddItem(Labels, ChartStartFormat(startTime,(int) App.Setting.Collect.Output).ToString(), 0);
+                        Labels = StringHelper.AddItem(Labels, ChartStartFormat(startTime,(int) App.Setting.Collect.Output).ToString(), 0);
                     }
                    
                     CartesianChart cartesian = new CartesianChart
@@ -493,19 +542,23 @@ namespace WirelessObservation.View
                     {
                         Labels.RemoveAt(Labels.Count - 1);
                     }
-
+                    // 清空数据缓存集的所有数据
                     DataTemp.Clear();
-                    Labels.Add(Convert.ToDateTime(lastTimeStamp).AddSeconds(1).ToString("yyyy-MM-dd HH:mm:ss"));
-                    // 数据容量超过3小时即60 * 60 * 3个数据点
+                    // 设置下一个时间节点
+                    string first_temp = now.AddSeconds(1).ToString("yyyy-MM-dd HH:mm:ss");
+                    // 在标签数组中添加下一秒的数据
+                    Labels.Add(first_temp);
+                    // 布置数据容量
                     int capacity = 12 * 60 * 60;
+                    // 当数据容量超过设置阈值时从头开始剔除数据
                     if (SeriesCollection[0].Values.Count >= capacity)
                     {
                         SeriesCollection[0].Values.RemoveAt(0);
                         SeriesCollection[1].Values.RemoveAt(0);
                         Labels.RemoveAt(0);
                     }
-                    string first_temp = now.AddSeconds(1).ToString("yyyy-MM-dd HH:mm:ss");
-                    DataTemp = AddItem(DataTemp, new Entity.DataEntity(first_temp), Dcount);
+                    // 在数据缓存集中添加下一个数据节点
+                    DataTemp = StringHelper.AddItem(DataTemp, new Entity.DataEntity(first_temp));
                 }
             }
             catch(Exception exc)
@@ -623,70 +676,7 @@ namespace WirelessObservation.View
             return result;
         }
 
-        /// <summary>
-        /// 将指定类型的数据添加至数组中，
-        /// </summary>
-        /// <typeparam name="T">数组中指定的类型</typeparam>
-        /// <param name="variable">数组变量</param>
-        /// <param name="item">数组中需要更改的数据</param>
-        /// /// <param name="index">数组中需要更改的索引</param>
-        /// <returns></returns>
-        public static List<T> AddItem<T>(List<T> variable, T item, int index)
-        {
-            /*判断数组的长度*/
-            // 如果数组长度大于需要更改的索引值，则说明该索引存在
-            if (variable.Count > index)
-            {
-                // 更改该项目
-                variable[index] = item;
-            }
-            // 小于则说明该索引不存在
-            else
-            {
-                // 添加该索引至数组
-                variable.Add(item);
-            }
-            // 将数组返回
-            return variable;
-        }
-
-        public static List<T> AddItem<T>(List<T> variable, T item)
-        {
-            /*判断数组的长度*/
-            // 如果数组长度大于需要更改的索引值，则说明该索引存在
-            if (variable.Count > 0)
-            {
-                // 更改该项目
-                variable[0] = item;
-            }
-            // 小于则说明该索引不存在
-            else
-            {
-                // 添加该索引至数组
-                variable.Add(item);
-            }
-            // 将数组返回
-            return variable;
-        }
-
-        public static List<List<T>> AddSonItem<T>(List<List<T>> variable, T sonItem, int index)
-        {
-            /*判断数组的长度*/
-            // 如果数组长度大于需要更改的索引值，则说明该索引存在
-            if (variable.Count > index)
-            {
-                // 更改该项目
-                variable[index].Add(sonItem);
-            }
-            // 小于则说明该索引不存在
-            else
-            {
-                // 添加该索引至数组
-                variable.Add(new List<T> { sonItem });
-            }
-            // 将数组返回
-            return variable;
-        }
+        
 
         private void HistoryBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -757,7 +747,7 @@ namespace WirelessObservation.View
                 "(1) 使用本软件请确认已插入无线接收模块\r\n" +
                 "(2) 点击\"开始采集\"开始本次采集\r\n" +
                 "(3) 点击\"结束采集\"结束本次采集\r\n" +
-                "(4) 点击\"导出数据\"导出本次采集数据，导出数据只能在结束采集后使用\r\n" +
+                //"(4) 点击\"导出数据\"导出本次采集数据，导出数据只能在结束采集后使用\r\n" +
                 "(5) 点击\"历史数据\"可根据历史缓存的数据进行查看，历史数据只能在结束采集后使用\r\n" +
                 "如有疑问请联系：wangwei@topflagtec.com 王玮\r\n\r\n" +
                 "北京旗云创科科技有限责任公司" +
@@ -770,8 +760,135 @@ namespace WirelessObservation.View
 
         private void test_Click(object sender, RoutedEventArgs e)
         {
-            test t = new test();
-            t.ShowDialog();
+            string filePath = @"C:\Users\Mloong\Downloads\Ladar_Data\20170809.dat";
+            Model.WindProfileRadar radar = new Model.WindProfileRadar(filePath, 0);
+            bool eof = false;
+            List<WindProfileRadarEntity> dataSet = new List<WindProfileRadarEntity>();
+            int i = 0;
+            while (!eof)
+            {
+                List<WindProfileRadarEntity> t = radar.GetSectionData( out eof);
+                if (t != null)
+                {
+                    dataSet = dataSet.Union(t).ToList();
+                    i++;
+                }
+            }
+            //DateTime Ooclock = new DateTime(Convert.ToInt32(s[3][3]), Convert.ToInt32(s[3][1]), Convert.ToInt32(s[3][2]));
+            //DateTime timeStamp = new DateTime(Convert.ToInt32(s[3][3]), Convert.ToInt32(s[3][1]), Convert.ToInt32(s[3][2]), Convert.ToInt32(s[3][4]), Convert.ToInt32(s[3][5]), 0);
+            //TimeSpan ts = timeStamp - Ooclock;
+            //double past = ts.TotalMinutes;
+            //timeIndex = Convert.ToInt32(past / 10);
+
+            FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            StreamReader m_streamReader = new StreamReader(fs);
+            FileInfo fileInfo = new FileInfo(filePath);
+            long size = fileInfo.Length;
+            //使用StreamReader类来读取文件 
+            m_streamReader.BaseStream.Seek(1306 + 1, SeekOrigin.Begin);
+            //从数据流中读取每一行，直到文件的最后一行，并在textBox中显示出内容，其中textBox为文本框，如果不用可以改为别的 
+            string temp = "start\r\n";
+            string strLine = m_streamReader.ReadLine();
+            string partten = @"(GPS\sLAT|GPS\sLONG|T\sIN|T\sOUT)\s+|\s+";
+            string strTest = "";
+
+            string[] sArray = System.Text.RegularExpressions.Regex.Split(strTest, partten, System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            List<List<string>> ss = new List<List<string>>(); 
+            // 将数据插入数组中
+            while (strLine != null)
+            {
+                // 判断该行是否为空行
+                if (!string.IsNullOrEmpty(strLine))
+                {
+                    // 将分隔后的数据加入数组尾部
+                    ss.Add(strLine.Split(new char[1] { ' ' },StringSplitOptions.RemoveEmptyEntries).ToList());
+                    temp += strLine + "\r\n";
+                    
+                }
+                strLine = m_streamReader.ReadLine();
+
+            }
+            m_streamReader.Close();
+            temp += "end";
+            // 遍历数据数组
+            foreach (List<string> s in ss)
+            {
+                foreach (string str in s)
+                {
+                    Console.Write(str+",");
+                }
+                Console.Write("\r\n");
+            }
+
+            MessageBox.Show(temp);
+            //关闭此StreamReader对象 
+            
+            
+
+        }
+
+        /// <summary>
+        /// 设置数据文件存储位置
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void SetDataPosBtn_Click(object sender, RoutedEventArgs e)
+        {
+            //OpenFileDialog openFileDialog = new OpenFileDialog();
+            //openFileDialog.Title = "选择数据源文件";
+            //openFileDialog.Filter = "dat文件|*.dat";
+            //openFileDialog.FileName = string.Empty;
+            //openFileDialog.FilterIndex = 1;
+            //openFileDialog.Multiselect = false;
+            //openFileDialog.RestoreDirectory = true;
+            //openFileDialog.DefaultExt = "dat";
+            //if (openFileDialog.ShowDialog() == false)
+            //{
+            //    return;
+            //}
+            //string txtFile = System.IO.Path.GetDirectoryName(openFileDialog.FileName);
+            CommonOpenFileDialog dialog = new CommonOpenFileDialog();
+            dialog.IsFolderPicker = true;//设置为选择文件夹
+            
+            if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
+            {
+                return;
+            }
+            App.Setting.Data.DataPath = dialog.FileName;
+        }
+
+        private void SetStorePosBtn_Click(object sender, RoutedEventArgs e)
+        {
+            CommonOpenFileDialog dialog = new CommonOpenFileDialog();
+            dialog.IsFolderPicker = true;//设置为选择文件夹
+
+            if (dialog.ShowDialog() != CommonFileDialogResult.Ok)
+            {
+                return;
+            }
+            App.Setting.Data.StorePath = dialog.FileName;
+        }
+    }
+
+    public class JsEvent
+    {
+        public Entity.WindProfileRadarEntity ChartData { get; set; }
+        public string MessageText { get; set; }
+        public void ShowTest()
+        {
+            MessageBox.Show("this in c#.\n\r" + MessageText);
+
+
+        }
+        public void ShowTestArg(string ss)
+        {
+            MessageBox.Show("收到Js参数的调用\n\r" + ss);
+        }
+
+        public string GetStrThree()
+        {
+            return "123";
         }
     }
 }

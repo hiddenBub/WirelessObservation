@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:cefSharpWPF="clr-namespace:CefSharp.Wpf;assembly=CefSharp.Wpf"
         xmlns:local="clr-namespace:WirelessObservation.View"
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
@@ -10,14 +11,20 @@
     <Grid>
         <DockPanel>
             <ToolBar DockPanel.Dock="Top">
+                <Menu Name="file">
+                    <MenuItem Header="文件">
+                        <MenuItem Header="设置数据文件位置" Name="SetDataPosBtn" Click="SetDataPosBtn_Click"></MenuItem>
+                        <MenuItem Header="设置数据存储位置" Name="SetStorePosBtn" Click="SetStorePosBtn_Click"></MenuItem>
+                    </MenuItem>
+                </Menu>
                 <CheckBox Name="GatherCB" Content="开始采集" Checked="GatherCB_Checked" Unchecked="GatherCB_Unchecked"></CheckBox>
-                <Button Name="ExportBtn" Content="导出数据" Click="ExportBtn_Click" />
+                <!--<Button Name="ExportBtn" Content="导出数据" Click="ExportBtn_Click" />-->
                 <Button Name="HistoryBtn" Content="历史数据" Click="HistoryBtn_Click" />
                 <Button Name="HelpBtn" Content="帮助" Click="HelpBtn_Click" />
-                <!--<Button Name="test" Content="test" Click="test_Click"></Button>-->
+                <Button Name="test" Content="test" Click="test_Click"></Button>
             </ToolBar>
             <Grid x:Name="Chart" DockPanel.Dock="Top" Margin="5" >
-                
+                <!--<cefSharpWPF:ChromiumWebBrowser Address="http://echarts.baidu.com/examples/editor.html?c=bar-animation-delay" />-->
             </Grid >
         </DockPanel>
     </Grid>
