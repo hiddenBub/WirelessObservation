@@ -60,92 +60,114 @@ namespace WirelessObservation
         /// <param name="e"></param>
         protected override void OnStartup(StartupEventArgs e)
         {
-            Current.ShutdownMode = ShutdownMode.OnMainWindowClose;      // 设置程序中断模式
-
-
-            // 初始化文件夹
-            if (!Directory.Exists(ProgramData)) Directory.CreateDirectory(ProgramData);
-            if (!Directory.Exists(DocumentPath)) Directory.CreateDirectory(DocumentPath);
-            if (!Directory.Exists(DataStoragePath)) Directory.CreateDirectory(DataStoragePath);
-            // 首次启动时没有配置文件初始化配置文件及快捷方式
-            if (!System.IO.File.Exists(SettingPath))
+            try
             {
-
-                var desktop = Vendor.Shortcut.GetDeskDir();
-
-
-                string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                WshShell shell = new WshShell();
-
-                string shotcutName = "无线采集系统.lnk";
-                string shortcutAddress = Path.Combine(desktopPath, shotcutName);
-                IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(shortcutAddress);
-                shortcut.Description = "无线采集系统";
-                //shortcut.Hotkey = "Ctrl+Shift+N";
-                shortcut.TargetPath = AppDomain.CurrentDomain.BaseDirectory + ProjectName + ".exe";
-                shortcut.Save();
+                Current.ShutdownMode = ShutdownMode.OnMainWindowClose;      // 设置程序中断模式
 
 
-                Setting setting = new Setting
+                // 初始化文件夹
+                if (!Directory.Exists(ProgramData)) Directory.CreateDirectory(ProgramData);
+                if (!Directory.Exists(DocumentPath)) Directory.CreateDirectory(DocumentPath);
+                if (!Directory.Exists(DataStoragePath)) Directory.CreateDirectory(DataStoragePath);
+                // 首次启动时没有配置文件初始化配置文件及快捷方式
+                if (!System.IO.File.Exists(SettingPath))
                 {
-                    Collect = new Collect
-                    {
-                        Input = 1,
-                        Output = 1,
-                    },
-                    Data = new Data
-                    {
-                        DataPath = "",
-                        StorePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                        RecentlyFile = "",
-                        FileOffest = 0,
-                    }
-                };
-                Vendor.XmlHelper.SerializeToXml(SettingPath, setting);
-                
-            }
-            Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
+                    string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    bool isChinese = Vendor.PublicHelper.IsChineseSimple();
+                    string shotcutName = Vendor.PublicHelper.IsChineseSimple() ? "无线采集系统.lnk" : ProjectName+".lnk";
+                    WshShell shell = new WshShell();
+                    IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(System.IO.Path.Combine(desktopPath, shotcutName));
 
-            if (!System.IO.File.Exists(DataStoragePath + "\\source.dat"))
-            {
-                System.IO.StreamWriter sw = new System.IO.StreamWriter(DataStoragePath + "\\source.dat", false, System.Text.Encoding.UTF8);
-                List<string> header = new List<string>
+
+                    //string shotcutName = "无线采集系统.lnk";
+                    //string shortcutAddress = Path.Combine(desktopPath, shotcutName);
+                    //IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(shortcutAddress);
+                    shortcut.Description = "无线采集系统";
+                    //shortcut.Hotkey = "Ctrl+Shift+N";
+                    shortcut.TargetPath = AppDomain.CurrentDomain.BaseDirectory + ProjectName + ".exe";
+                    shortcut.Save();
+                    string DataPath = Environment.CurrentDirectory + "\\source";
+                    string StorePath = Environment.CurrentDirectory + "\\json";
+                    if (!Directory.Exists(DataPath)) Directory.CreateDirectory(DataPath);
+                    if (!Directory.Exists(StorePath)) Directory.CreateDirectory(StorePath);
+                    Setting setting = new Setting
+                    {
+                        Collect = new Collect
+                        {
+                            Input = 1,
+                            Output = 1,
+                        },
+                        Data = new Data
+                        {
+                            DataPath = DataPath,
+                            StorePath = StorePath,
+                            RecentlyFile = "",
+                            FileOffest = 0,
+                            LastModify = new DateTime(),
+                        }
+                    };
+                    Vendor.XmlHelper.SerializeToXml(SettingPath, setting);
+
+                }
+                Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
+
+                if (!System.IO.File.Exists(DataStoragePath + "\\source.dat"))
+                {
+                    System.IO.StreamWriter sw = new System.IO.StreamWriter(DataStoragePath + "\\source.dat", false, System.Text.Encoding.UTF8);
+                    List<string> header = new List<string>
                 {
                     "\"" + string.Join("\",\"", new string[] { "记录数","时间","风速", "风向"}) + "\"",
                     "\"" + string.Join("\",\"", new string[] { "RN", "TS", "m/s","°" }) + "\"",
                 };
-                // 将文件头中所有数据写入文件
-                foreach (string str in header)
-                {
-                    // 写入一整行
-                    sw.WriteLine(str);
+                    // 将文件头中所有数据写入文件
+                    foreach (string str in header)
+                    {
+                        // 写入一整行
+                        sw.WriteLine(str);
+                    }
+
+                    // 关闭文件
+                    sw.Close();
+
                 }
 
-                // 关闭文件
-                sw.Close();
+                //Add Custom assembly resolver
+                AppDomain.CurrentDomain.AssemblyResolve += Resolver;
+
+                //Any CefSharp references have to be in another method with NonInlining
+                // attribute so the assembly rolver has time to do it's thing.
+                InitializeCefSharp();
+            }
+            catch (Exception ex)
+            {
+                Vendor.LogHelper.WriteLog(ex);
             }
         }
 
-        public App()
-        {
-            //Add Custom assembly resolver
-            AppDomain.CurrentDomain.AssemblyResolve += Resolver;
-
-            //Any CefSharp references have to be in another method with NonInlining
-            // attribute so the assembly rolver has time to do it's thing.
-            InitializeCefSharp();
-        }
+        
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void InitializeCefSharp()
         {
-            //Perform dependency check to make sure all relevant resources are in our output directory.
-            var settings = new CefSettings();
-            settings.BrowserSubprocessPath = Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase,
-                                                   Environment.Is64BitProcess ? "x64" : "x86",
-                                                   "CefSharp.BrowserSubprocess.exe");
-
-            Cef.Initialize(settings, performDependencyCheck: false, browserProcessHandler: null);
+            string str = string.Empty;
+            try
+            {
+                //Perform dependency check to make sure all relevant resources are in our output directory.
+                var settings = new CefSettings();
+                //settings.BrowserSubprocessPath = Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase,
+                //                                       "x86",
+                //                                       "CefSharp.BrowserSubprocess.exe");
+                settings.BrowserSubprocessPath = Path.Combine(Environment.CurrentDirectory,
+                                                       "x86",
+                                                       "CefSharp.BrowserSubprocess.exe");
+                str = settings.BrowserSubprocessPath;
+                Cef.Initialize(settings, performDependencyCheck: false, browserProcessHandler: null);
+            }
+            catch(Exception ex)
+            {
+                Vendor.LogHelper.WriteLog(ex);
+            }
+            
         }
 
         // Will attempt to load missing assembly from either x86 or x64 subdir
@@ -154,16 +176,22 @@ namespace WirelessObservation
         {
             if (args.Name.StartsWith("CefSharp"))
             {
-                string assemblyName = args.Name.Split(new[] { ',' }, 2)[0] + ".dll";
-                string archSpecificPath = Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase,
-                                                       Environment.Is64BitProcess ? "x64" : "x86",
-                                                       assemblyName);
+                try
+                {
+                    string assemblyName = args.Name.Split(new[] { ',' }, 2)[0] + ".dll";
+                    string archSpecificPath = Path.Combine(AppDomain.CurrentDomain.SetupInformation.ApplicationBase,
+                                                           Environment.Is64BitProcess ? "x64" : "x86",
+                                                           assemblyName);
 
-                return System.IO.File.Exists(archSpecificPath)
-                           ? Assembly.LoadFile(archSpecificPath)
-                           : null;
+                    return System.IO.File.Exists(archSpecificPath)
+                               ? Assembly.LoadFile(archSpecificPath)
+                               : null;
+                }
+                catch (Exception ex)
+                {
+                    Vendor.LogHelper.WriteLog(ex);
+                }
             }
-
             return null;
         }
 

@@ -25,26 +25,29 @@ namespace WirelessObservation.Entity
     {
         //[XmlIgnore]
         [XmlElement(ElementName = "DataPath")]  // 数据存储位置
-        private string dataPath = "";
+        private string dataPath;
 
         public string DataPath { get => dataPath; set => dataPath = value; }
 
         [XmlElement (ElementName = "StorePath")]    // 输出数据存储位置
-        private string storePath = "";
+        private string storePath;
 
         public string StorePath { get => storePath; set => storePath = value; }
 
         [XmlElement(ElementName = "RecentlyFile")]    // 最近操作的文件
-        private string recentlyFile = "";
+        private string recentlyFile;
 
         public string RecentlyFile { get => recentlyFile; set => recentlyFile = value; }
 
         [XmlElement(ElementName = "FileOffest")]    // 文件偏移量
-        private long fileOffset = 0;
+        private long fileOffset;
 
         public long FileOffest { get => fileOffset; set => fileOffset = value; }
 
+        [XmlElement(ElementName = "LastModify")]    // 文件更改时间
+        private DateTime lastModify;
 
+        public DateTime LastModify { get => lastModify; set => lastModify = value; }
 
     }
 

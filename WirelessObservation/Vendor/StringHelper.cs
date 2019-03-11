@@ -72,5 +72,18 @@ namespace WirelessObservation.Vendor
             // 将数组返回
             return variable;
         }
+
+        /// <summary>
+        /// 将特殊字符转义
+        /// </summary>
+        /// <param name="Meaning">需转义的字符串</param>
+        /// <returns></returns>
+        public static string Encoding(string Meaning)
+        {
+            //普通字符变换成转义字符
+            Meaning = Meaning.Replace("%", "%25");
+            Meaning = Meaning.Replace("#", "%23");
+            return Meaning;
+        }
     }
 }
