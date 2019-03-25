@@ -122,6 +122,9 @@
     <Compile Include="View\ScrollList.xaml.cs">
       <DependentUpon>ScrollList.xaml</DependentUpon>
     </Compile>
+    <Compile Include="View\SettingOptions.xaml.cs">
+      <DependentUpon>SettingOptions.xaml</DependentUpon>
+    </Compile>
     <Compile Include="View\test.xaml.cs">
       <DependentUpon>test.xaml</DependentUpon>
     </Compile>
@@ -142,6 +145,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="View\ScrollList.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\SettingOptions.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

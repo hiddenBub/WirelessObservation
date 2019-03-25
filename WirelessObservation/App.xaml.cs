@@ -94,13 +94,17 @@ namespace WirelessObservation
                     {
                         Collect = new Collect
                         {
-                            Input = 1,
-                            Output = 1,
+                            Interval = 600,
+                            
                         },
                         Data = new Data
                         {
                             DataPath = DataPath,
                             StorePath = StorePath,
+                            
+                        },
+                        Systemd = new Systemd
+                        {
                             RecentlyFile = "",
                             FileOffest = 0,
                             LastModify = new DateTime(),
@@ -111,25 +115,25 @@ namespace WirelessObservation
                 }
                 Setting = Vendor.XmlHelper.DeserializeFromXml<Setting>(SettingPath);
 
-                if (!System.IO.File.Exists(DataStoragePath + "\\source.dat"))
-                {
-                    System.IO.StreamWriter sw = new System.IO.StreamWriter(DataStoragePath + "\\source.dat", false, System.Text.Encoding.UTF8);
-                    List<string> header = new List<string>
-                {
-                    "\"" + string.Join("\",\"", new string[] { "记录数","时间","风速", "风向"}) + "\"",
-                    "\"" + string.Join("\",\"", new string[] { "RN", "TS", "m/s","°" }) + "\"",
-                };
-                    // 将文件头中所有数据写入文件
-                    foreach (string str in header)
-                    {
-                        // 写入一整行
-                        sw.WriteLine(str);
-                    }
+                //if (!System.IO.File.Exists(DataStoragePath + "\\source.dat"))
+                //{
+                //    StreamWriter sw = new StreamWriter(DataStoragePath + "\\source.dat", false, System.Text.Encoding.UTF8);
+                //    List<string> header = new List<string>
+                //{
+                //    "\"" + string.Join("\",\"", new string[] { "记录数","时间","风速", "风向"}) + "\"",
+                //    "\"" + string.Join("\",\"", new string[] { "RN", "TS", "m/s","°" }) + "\"",
+                //};
+                //    // 将文件头中所有数据写入文件
+                //    foreach (string str in header)
+                //    {
+                //        // 写入一整行
+                //        sw.WriteLine(str);
+                //    }
 
-                    // 关闭文件
-                    sw.Close();
+                //    // 关闭文件
+                //    sw.Close();
 
-                }
+                //}
 
                 //Add Custom assembly resolver
                 AppDomain.CurrentDomain.AssemblyResolve += Resolver;

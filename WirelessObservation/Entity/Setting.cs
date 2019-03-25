@@ -19,6 +19,27 @@ namespace WirelessObservation.Entity
 
         [XmlElement(ElementName = "Data")]
         public Data Data { get; set; }
+
+        [XmlElement(ElementName = "Systemd")]
+        public Systemd Systemd { get; set; }
+    }
+
+    public class Systemd
+    {
+        [XmlElement(ElementName = "RecentlyFile")]    // 最近操作的文件
+        private string recentlyFile;
+
+        public string RecentlyFile { get => recentlyFile; set => recentlyFile = value; }
+
+        [XmlElement(ElementName = "FileOffest")]    // 文件偏移量
+        private long fileOffset;
+
+        public long FileOffest { get => fileOffset; set => fileOffset = value; }
+
+        [XmlElement(ElementName = "LastModify")]    // 文件更改时间
+        private DateTime lastModify;
+
+        public DateTime LastModify { get => lastModify; set => lastModify = value; }
     }
 
     public class Data
@@ -34,20 +55,7 @@ namespace WirelessObservation.Entity
 
         public string StorePath { get => storePath; set => storePath = value; }
 
-        [XmlElement(ElementName = "RecentlyFile")]    // 最近操作的文件
-        private string recentlyFile;
-
-        public string RecentlyFile { get => recentlyFile; set => recentlyFile = value; }
-
-        [XmlElement(ElementName = "FileOffest")]    // 文件偏移量
-        private long fileOffset;
-
-        public long FileOffest { get => fileOffset; set => fileOffset = value; }
-
-        [XmlElement(ElementName = "LastModify")]    // 文件更改时间
-        private DateTime lastModify;
-
-        public DateTime LastModify { get => lastModify; set => lastModify = value; }
+        
 
     }
 
@@ -77,20 +85,16 @@ namespace WirelessObservation.Entity
     public class Collect
     {
         /// <summary>
-        /// 输入/采集频率
+        /// 输入/采集频率 unit:second
         /// </summary>
-        [XmlElement(ElementName = "Input")]
-        public int? Input
-        {
-            get;
-            set;
-        }
+        [XmlElement(ElementName = "Interval")]
+        public int? Interval { get; set; }
 
-        /// <summary>
-        /// 输出/显示频率
-        /// </summary>
-        [XmlElement(ElementName = "Output")]
-        public int? Output { get; set; }
+        ///// <summary>
+        ///// 输出/显示频率
+        ///// </summary>
+        //[XmlElement(ElementName = "Output")]
+        //public int? Output { get; set; }
         
     }
 

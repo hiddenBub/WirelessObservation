@@ -109,7 +109,7 @@ namespace WirelessObservation
                 if (StartTime.Value != null)
                 {
                     string selected = System.IO.Path.GetFileNameWithoutExtension(FileList.SelectData);
-                    MainWindow.startTime = DateTime.ParseExact(selected,"yyyyMMdd", System.Globalization.CultureInfo.CurrentCulture);
+                    MainWindow.StartTime = DateTime.ParseExact(selected,"yyyyMMdd", System.Globalization.CultureInfo.CurrentCulture);
                     
                     //if (EndTime.Value != null)
                     //{

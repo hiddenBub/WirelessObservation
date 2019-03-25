@@ -72,7 +72,8 @@
 
         function SetChart()
         {
-
+            var Xseries = boud.GetXSeries();
+            alert(Xseries.length);
             boud.GetData().then(function(res)
             {
                 var le = [];
@@ -207,12 +208,6 @@
                 myChart.setOption(op);
             });
         }
-
-
-
-
-
-
 
         $(function() {
             SetChart();
