@@ -49,13 +49,18 @@ namespace WirelessObservation
                 // 注册按键抬起事件
                 EndTime.PreviewKeyUp += new KeyEventHandler(TimeBar_KeyUp);
                 /************************************************************************/
-                DateTime earlist = (from f in Directory.GetFiles(App.Setting.Data.DataPath, "*.dat")
-                             let fi = new FileInfo(f)
-                             select fi.LastWriteTime).Min();
-                earlist = earlist.Date;
-                StartTime.Value = earlist;
+                string file = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
+                                      let fi = new FileInfo(f)
+                                      select fi.Name).Min();
+                string fileName = System.IO.Path.GetFileNameWithoutExtension(file);
+                //DateTime earlist = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
+                //let fi = new FileInfo(f)
+                //select fi.LastWriteTime).Min();
+                DateTime earlist = DateTime.ParseExact(fileName, "yyyyMMdd", System.Globalization.CultureInfo.GetCultureInfo("en"));
+                //earlist = earlist.Date;
+                StartTime.Value = earlist.Date;
                 EndTime.Value = DateTime.Now.Date;
-                FileList.DataSource = GetDataFiles(earlist, DateTime.Now).ToList();
+                //FileList.DataSource = GetDataFiles(earlist, DateTime.Now).ToList();
                 //string dataFile = App.DataStoragePath + "\\source.dat" ;
                 //if (File.Exists(dataFile))
                 //{
@@ -81,12 +86,12 @@ namespace WirelessObservation
 
         private string[] GetDataFiles(DateTime start, DateTime end)
         {
-            string[] files = (from f in Directory.GetFiles(App.Setting.Data.DataPath, "*.dat")
+            string[] files = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
                               let fi = new FileInfo(f)
                               orderby fi.LastWriteTime ascending
                               where fi.LastWriteTime.CompareTo(start) >= 0 && fi.LastWriteTime.CompareTo(end) < 0
                               select fi.Name).ToArray();
-            System.Text.RegularExpressions.Regex reg = new System.Text.RegularExpressions.Regex(@"^(\d{4})(\d{2})(\d{2})\.dat$");
+            System.Text.RegularExpressions.Regex reg = new System.Text.RegularExpressions.Regex(@"^(\d{4})(\d{2})(\d{2})\.json$");
             List<string> res = new List<string>();
             foreach (string file in files)
             {
@@ -108,13 +113,14 @@ namespace WirelessObservation
                 
                 if (StartTime.Value != null)
                 {
-                    string selected = System.IO.Path.GetFileNameWithoutExtension(FileList.SelectData);
-                    MainWindow.StartTime = DateTime.ParseExact(selected,"yyyyMMdd", System.Globalization.CultureInfo.CurrentCulture);
+                    //string selected = System.IO.Path.GetFileNameWithoutExtension(FileList.SelectData);
                     
-                    //if (EndTime.Value != null)
-                    //{
-                    //    MainWindow.endTime = (DateTime)EndTime.Value;
-                    //}
+
+                    if (EndTime.Value != null && Convert.ToDateTime(StartTime.Value).CompareTo((DateTime)EndTime.Value) <= 0)
+                    {
+                        MainWindow.StartTime = (DateTime)StartTime.Value;
+                        MainWindow.EndTime = (DateTime)EndTime.Value;
+                    }
                 }
                 this.DialogResult = true;
             }
@@ -171,7 +177,7 @@ namespace WirelessObservation
             {
                 control.Value = time;
                 List<string> dataSet =  GetDataFiles(Convert.ToDateTime(StartTime.Value), Convert.ToDateTime(EndTime.Value)).ToList();
-                FileList.Reload(dataSet);
+                //FileList.Reload(dataSet);
             }
         }
 

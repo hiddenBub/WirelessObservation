@@ -73,7 +73,8 @@
     <SignManifests>true</SignManifests>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Loya.Dameer">
+    <Reference Include="Loya.Dameer, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\calibration_app\calibration_app\calibration_app\Loya.Dameer.dll</HintPath>
     </Reference>
     <Reference Include="System" />
@@ -100,13 +101,17 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Entity\DataEntity.cs" />
+    <Compile Include="Entity\FTPEntity.cs" />
+    <Compile Include="Entity\WindDirection.cs" />
     <Compile Include="Entity\WindProfileRadarEntity.cs" />
     <Compile Include="Entity\PortEntity.cs" />
     <Compile Include="Entity\Setting.cs" />
     <Compile Include="Model\WindProfileRadar.cs" />
+    <Compile Include="Vendor\FTPHelper.cs" />
     <Compile Include="Vendor\LogHelper.cs" />
     <Compile Include="Vendor\PublicHelper.cs" />
     <Compile Include="Vendor\SettingHelper.cs" />
+    <Compile Include="Vendor\SFTPHelper.cs" />
     <Compile Include="Vendor\ShortCut.bak.cs" />
     <Compile Include="Vendor\Shortcut.cs" />
     <Compile Include="Vendor\StringHelper.cs" />
@@ -224,13 +229,22 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CefSharp.Common">
-      <Version>69.0.0</Version>
+      <Version>73.1.130</Version>
     </PackageReference>
     <PackageReference Include="CefSharp.Wpf">
-      <Version>69.0.0</Version>
+      <Version>73.1.130</Version>
+    </PackageReference>
+    <PackageReference Include="DiffieHellman">
+      <Version>1.0.0</Version>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json">
-      <Version>12.0.1</Version>
+      <Version>12.0.2</Version>
+    </PackageReference>
+    <PackageReference Include="Org.Mentalis.Security">
+      <Version>1.0.0</Version>
+    </PackageReference>
+    <PackageReference Include="Tamir.SharpSSH">
+      <Version>1.1.1.13</Version>
     </PackageReference>
     <PackageReference Include="WindowsAPICodePack-Shell">
       <Version>1.1.1</Version>

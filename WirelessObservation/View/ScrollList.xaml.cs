@@ -90,12 +90,12 @@ namespace WirelessObservation.View
             if (e.Delta > 0)
             {
                 // 上滚超界
-                startIndex++;
+                startIndex--;
             }
             // 滚轮下滚
             else
             {
-                startIndex--;
+                startIndex++;
             }
             // 数据下部越界重设数据起始
             if (startIndex > DataSource.Count)

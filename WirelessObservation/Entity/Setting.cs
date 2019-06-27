@@ -27,20 +27,60 @@ namespace WirelessObservation.Entity
     public class Systemd
     {
         [XmlElement(ElementName = "RecentlyFile")]    // 最近操作的文件
-        private string recentlyFile;
-
-        public string RecentlyFile { get => recentlyFile; set => recentlyFile = value; }
+        private string recentlyFile = "";
+        public string RecentlyFile {
+            get => recentlyFile;
+            set {
+                recentlyFile = value.Contains(".") ? value.Split(new char['.'], StringSplitOptions.RemoveEmptyEntries)[0] : value;
+            }
+        }
 
         [XmlElement(ElementName = "FileOffest")]    // 文件偏移量
-        private long fileOffset;
-
+        private long fileOffset = 0;
         public long FileOffest { get => fileOffset; set => fileOffset = value; }
 
         [XmlElement(ElementName = "LastModify")]    // 文件更改时间
-        private DateTime lastModify;
-
+        private DateTime lastModify = new DateTime();
         public DateTime LastModify { get => lastModify; set => lastModify = value; }
+
+        [XmlElement(ElementName = "ComPort")]    // 接收数据使用的COM口
+        private string comPort = "";
+        public string ComPort { get => comPort; set => comPort = value; }
+
+        [XmlElement(ElementName = "DevMode")]    // 是否为开发模式
+        private bool devMode = false;
+        public bool DevMode { get => devMode; set => devMode = value; }
+
+        [XmlElement(ElementName = "Download")]  // 是否启用FTP下载
+        private bool download = false;
+        public bool Download { get => download; set => download = value; }
+
+        [XmlElement(ElementName = "Hostname")]  // FTP主机IP或域名
+        private string hostname = "";
+        public string Hostname { get => hostname; set => hostname = value; }
+
+        [XmlElement(ElementName = "Username")]  // FTP用户名称
+        private string username = "";
+        public string Username { get => username; set => username = value; }
+
+        [XmlElement(ElementName = "Password")]  // FTP主机密码
+        private string password = "";
+        public string Password { get => password; set => password = value; }
+
+        [XmlElement(ElementName = "Port")]      // 端口
+        private int port = 21;
+        public int Port { get => port; set => port = value; }
+
+        [XmlElement(ElementName = "RemotePath")]
+        private string remotePath = "";
+        public string RemotePath { get => remotePath; set => remotePath = value; }
+
+
+        [XmlElement(ElementName = "UtcTime")]   // 是否使用格林威治时间
+        private bool utcTime = true;
+        public bool UtcTime { get => utcTime; set => utcTime = value; }
     }
+    
 
     public class Data
     {
@@ -90,12 +130,17 @@ namespace WirelessObservation.Entity
         [XmlElement(ElementName = "Interval")]
         public int? Interval { get; set; }
 
+        [XmlElement(ElementName = "SodarUrl")]    // 输出数据存储位置
+        private string sodarUrl;
+
+        public string SodarUrl { get => sodarUrl; set => sodarUrl = value; }
+
         ///// <summary>
         ///// 输出/显示频率
         ///// </summary>
         //[XmlElement(ElementName = "Output")]
         //public int? Output { get; set; }
-        
+
     }
 
     //public class Gather

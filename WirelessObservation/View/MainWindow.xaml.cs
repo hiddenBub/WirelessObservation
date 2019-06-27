@@ -47,6 +47,10 @@ namespace WirelessObservation.View
         /// </summary>
         private static bool isGather = false;
 
+        /// <summary>
+        /// 是否使用历史数据标识
+        /// </summary>
+        private static bool isHistory = false;
 
         private int intervalCount = 0;
 
@@ -61,7 +65,7 @@ namespace WirelessObservation.View
         /// 表格时间轴数组
         /// </summary>
         private static string[] timeAxis;
-        public static DateTime endTime;
+        private static DateTime endTime;
 
         /// <summary>
         /// 是否处于采集状态
@@ -93,8 +97,11 @@ namespace WirelessObservation.View
         public static List<WindProfileRadarEntity> ChartData { get => chartData; set => chartData = value; }
         public static string[] TimeAxis { get => timeAxis; set => timeAxis = value; }
         public static DateTime StartTime { get => startTime; set => startTime = value; }
+        public static DateTime EndTime { get => endTime; set => endTime = value; }
         public DispatcherTimer DispatcherTimer { get => dispatcherTimer; set => dispatcherTimer = value; }
         public int IntervalCount { get => intervalCount; set => intervalCount = value; }
+        public static bool IsHistory { get => isHistory; set => isHistory = value; }
+
 
 
 
@@ -115,18 +122,24 @@ namespace WirelessObservation.View
             string str = string.Empty;
             try
             {
+                // 非开发模式隐藏掉非必要的按钮
+                if (!App.Setting.Systemd.DevMode)
+                {
+                    CollectBtn.Visibility = Visibility.Collapsed;
+                    ResetData.Visibility = Visibility.Collapsed;
+                    test.Visibility = Visibility.Collapsed;
+                }
                 controller = new IController(this);
-
+                
                 // 开始拉取数据
                 StartGather();
-
-               
-
+                
                 // 创建浏览器对象
                 browser = new ChromiumWebBrowser();
 
                 // 设置浏览器浏览的html文件
                 string HtmlPath = StringHelper.Encoding(Environment.CurrentDirectory + "\\View\\web\\echarts.html");
+                LogHelper.WriteLog(new Exception("string exception"), HtmlPath);
 
                 browser.Address = HtmlPath;
 
@@ -136,9 +149,7 @@ namespace WirelessObservation.View
                 
                 // 设置异步的JS-C#委托事件
                 browser.RegisterAsyncJsObject("boud", new JsEvent(), new BindingOptions() { CamelCaseJavascriptNames = false, });
-
                 
-
                 // 增加缩放事件
                 this.SizeChanged += new SizeChangedEventHandler(MainWindow_Resize);
 
@@ -202,8 +213,8 @@ namespace WirelessObservation.View
         {
             //browser.ShowDevTools();
             //string name = Vendor.ComPort.GetComName("CH340");
-            string name = ComPort.GetComName("USB Serial Port");
-
+            //string name = ComPort.GetComName("USB Serial Port");
+            string name = App.Setting.Systemd.ComPort;
             if (name != "")
             {
                 Console.WriteLine(name);
@@ -211,20 +222,16 @@ namespace WirelessObservation.View
                     "8", "One", "None",
                     "None");
             }
-            else
-            {
-                
-                MessageBoxResult dr = MessageBox.Show("未检测到相应串口数据，是否直接采集雷达数据", "请确认", MessageBoxButton.OKCancel, MessageBoxImage.Question);
-                if (dr == MessageBoxResult.OK)
-                {
-                    
-                    DispatcherTimer.Tick += new EventHandler(DispatcherTimer_Tick);
+        }
 
-                    DispatcherTimer.Start();
-                    this.GatherCB.Content = "结束采集";
-                }
-                
-            }
+        /// <summary>
+        /// 点击采集设置按钮的逻辑
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void CollectBtn_Click(object sender, RoutedEventArgs e)
+        {
+
         }
 
         /// <summary>
@@ -319,7 +326,7 @@ namespace WirelessObservation.View
         /// <param name="e"></param>
         private void HistoryBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (IsGather)
+            if (IsGather || GatherCB.Content== "结束采集")
             {
                 MessageBox.Show("数据采集中，无法获取数据，请先停止采集", "提示");
                 return;
@@ -328,26 +335,33 @@ namespace WirelessObservation.View
             historyData.ShowDialog();
             if (historyData.DialogResult == true)
             {
-                string filename = string.Format("{0:yyyyMMdd}.dat", StartTime);
-                string jsonFile = App.Setting.Data.StorePath + "\\" + string.Format("{0:yyyyMMdd}.json", StartTime);
-                // 判断json文件是否存在
-                if (File.Exists(jsonFile))
+                var query = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
+                             let fi = new FileInfo(f)
+                             orderby fi.Name ascending
+                             where fi.Name.CompareTo(DateFormat(StartTime, "yyyyMMdd.json")) >= 0 && fi.Name.CompareTo(DateFormat(EndTime.AddDays(1), "yyyyMMdd.json")) < 0
+                             select fi.FullName);
+                string[] flies = query.ToArray();
+                ChartData.Clear();
+                for (int i = 0;i < flies.Length; i++)
                 {
-                    // 读取所有内容
-                    StreamReader jsonReader = new StreamReader(jsonFile, Encoding.UTF8);
-                    string json = jsonReader.ReadToEnd().TrimEnd(new char[] { '\r', '\n' });
-                    jsonReader.Close();
-                    if (!string.IsNullOrEmpty(json))  // 将数据存入数组中
+                    if (File.Exists(flies[i]))
                     {
-                        ChartData.Clear();
-                        ChartData = JsonConvert.DeserializeObject<List<WindProfileRadarEntity>>(json);
+                        // 读取所有内容
+                        StreamReader jsonReader = new StreamReader(flies[i], Encoding.UTF8);
+                        string json = jsonReader.ReadToEnd().TrimEnd(new char[] { '\r', '\n' });
+                        jsonReader.Close();
+                        if (!string.IsNullOrEmpty(json))  // 将数据存入数组中
+                        {
+                            
+                             ChartData.AddRange(JsonConvert.DeserializeObject<List<WindProfileRadarEntity>>(json));
+                        }
+                        
                     }
-                    browser.ExecuteScriptAsync("SetChart()");
                 }
-                else
-                {
-                    MessageBox.Show("数据为空或数据文件不存在", "提示", MessageBoxButton.OK);
-                }
+                SetTimeAxis(145);
+                IsHistory = true;
+                browser.ExecuteScriptAsync("SetChart()");
+
             }
         }
 
@@ -361,11 +375,11 @@ namespace WirelessObservation.View
             string des = "当前版本：" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() + "\r\n" +
                 "首次进入软件后请先设置雷达数据文件夹，点击 文件->设置数据文件位置 ，设置数据文件存储位置\r\n" +
                 "缓存数据默认存储在软件安装目录下json文件夹内，更换位置请选择 文件->设置数据存储位置\r\n" +
-                "(1) 使用本软件请确认已插入无线接收模块\r\n" +
-                "(2) 点击\"开始采集\"开始本次采集\r\n" +
-                "(3) 点击\"结束采集\"结束本次采集\r\n" +
+                //"(1) 使用本软件请确认已插入无线接收模块\r\n" +
+                "(1) 点击\"开始采集\"开始本次采集\r\n" +
+                "(2) 点击\"结束采集\"结束本次采集\r\n" +
                 //"(4) 点击\"导出数据\"导出本次采集数据，导出数据只能在结束采集后使用\r\n" +
-                "(4) 点击\"历史数据\"可根据历史缓存的数据进行查看，历史数据只能在结束采集后使用\r\n" +
+                "(3) 点击\"历史数据\"可根据历史缓存的数据进行查看，历史数据只能在结束采集后使用\r\n" +
                 "如有疑问请联系：wangwei@topflagtec.com 王玮\r\n\r\n" +
                 "北京旗云创科科技有限责任公司" +
                 "BEIJING TOP FLAG TECHNOLOGY CO., LTD\r\n" +
@@ -382,74 +396,42 @@ namespace WirelessObservation.View
         /// <param name="e"></param>
         private void test_Click(object sender, RoutedEventArgs e)
         {
-            browser.ExecuteScriptAsync("SetChart()");
-            //Task<CefSharp.JavascriptResponse> t = browser.GetBrowser().MainFrame.EvaluateScriptAsync("SetChart()");
-            //string filePath = @"C:\Users\Mloong\Downloads\Ladar_Data\20170809.dat";
-            //Model.WindProfileRadar radar = new Model.WindProfileRadar(filePath, 0);
-            //bool eof = false;
-            //List<WindProfileRadarEntity> dataSet = new List<WindProfileRadarEntity>();
-            //int i = 0;
-            //while (!eof)
+            SFTPHelper sftp = new SFTPHelper("192.168.24.218", "root", "111111");
+            sftp.Connect();
+            var filelist = sftp.GetFileList("/home","sh");
+            var fl = sftp.GetFileSize("/home/item.sh");
+            FileInfo fi = new FileInfo(@"C:\Users\Mloong\Desktop\test\item.sh");
+            long size = fi.Length;
+            sftp.Disconnect();
+
+            
+            
+            //// 显示开发工具
+            //browser.ShowDevTools();
+            //long offset = App.Setting.Systemd.FileOffest;
+            //string recently = App.Setting.Systemd.RecentlyFile;
+            //string dataPath = App.Setting.Data.DataPath;
+            //int count = 0;
+            //FTPEntity ftp = new FTPEntity("118.190.202.172", "ftpuser", "111111", 6000);
+            //DateTime recentTime = new DateTime();
+            //IFormatProvider ifp = new System.Globalization.CultureInfo("zh-CN", true);
+            //DateTime.TryParseExact(recently, "yyyyMMdd", ifp, System.Globalization.DateTimeStyles.None, out recentTime);
+            //string dir = "/beishida";
+            //SFTPHelper sftp = new SFTPHelper("118.190.202.172", "ftpuser", "273678@ROOT");
+            //sftp.Connect();
+            //sftp.Get("/home/download/Data-Dumper-2.173.tar.gz", @"E:\");
+            //sftp.Disconnect();
+            //var ftp = new Entity.FTPEntity("118.190.202.172", "ftpuser", "111111", 6000);
+            //long a = FTPHelper.GetFileSize(ftp, @"/beishida/20190421.dat");
+            //FileInfo file = new FileInfo(@"D:\C#\WirelessObservation\WirelessObservation\bin\Debug\source\20190421.dat");
+            //long b = file.Length;
+            //List<string> a = FTPHelper.ListFiles(ftp, "beishida");
+            //foreach (string str in a)
             //{
-            //    List<WindProfileRadarEntity> t = radar.GetSectionData( out eof);
-            //    if (t != null)
-            //    {
-            //        dataSet = dataSet.Union(t).ToList();
-            //        i++;
-            //    }
+            //    FTPHelper.Download(ftp, "/beishida/" + str, App.Setting.Data.DataPath, str);
             //}
-            //DateTime Ooclock = new DateTime(Convert.ToInt32(s[3][3]), Convert.ToInt32(s[3][1]), Convert.ToInt32(s[3][2]));
-            //DateTime timeStamp = new DateTime(Convert.ToInt32(s[3][3]), Convert.ToInt32(s[3][1]), Convert.ToInt32(s[3][2]), Convert.ToInt32(s[3][4]), Convert.ToInt32(s[3][5]), 0);
-            //TimeSpan ts = timeStamp - Ooclock;
-            //double past = ts.TotalMinutes;
-            //timeIndex = Convert.ToInt32(past / 10);
-
-            //FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            //StreamReader m_streamReader = new StreamReader(fs);
-            //FileInfo fileInfo = new FileInfo(filePath);
-            //long size = fileInfo.Length;
-            ////使用StreamReader类来读取文件 
-            //m_streamReader.BaseStream.Seek(1306 + 1, SeekOrigin.Begin);
-            ////从数据流中读取每一行，直到文件的最后一行，并在textBox中显示出内容，其中textBox为文本框，如果不用可以改为别的 
-            //string temp = "start\r\n";
-            //string strLine = m_streamReader.ReadLine();
-            //string partten = @"(GPS\sLAT|GPS\sLONG|T\sIN|T\sOUT)\s+|\s+";
-            //string strTest = "";
-
-            //string[] sArray = System.Text.RegularExpressions.Regex.Split(strTest, partten, System.Text.RegularExpressions.RegexOptions.Singleline);
-
-            //List<List<string>> ss = new List<List<string>>(); 
-            //// 将数据插入数组中
-            //while (strLine != null)
-            //{
-            //    // 判断该行是否为空行
-            //    if (!string.IsNullOrEmpty(strLine))
-            //    {
-            //        // 将分隔后的数据加入数组尾部
-            //        ss.Add(strLine.Split(new char[1] { ' ' },StringSplitOptions.RemoveEmptyEntries).ToList());
-            //        temp += strLine + "\r\n";
-
-            //    }
-            //    strLine = m_streamReader.ReadLine();
-
-            //}
-            //m_streamReader.Close();
-            //temp += "end";
-            //// 遍历数据数组
-            //foreach (List<string> s in ss)
-            //{
-            //    foreach (string str in s)
-            //    {
-            //        Console.Write(str+",");
-            //    }
-            //    Console.Write("\r\n");
-            //}
-
-            //MessageBox.Show(temp);
-            //关闭此StreamReader对象 
-
-
-
+            //Console.WriteLine(new FileInfo(@"E:\weatherdata-GFP1041J001-20190423AM.txt").Length);
+            //Console.WriteLine(a);
         }
 
         /// <summary>
@@ -474,7 +456,10 @@ namespace WirelessObservation.View
             {
                 return;
             }
+            
             App.Setting.Data.DataPath = dialog.FileName;
+            StartGather();
+            browser.GetBrowser().Reload();
         }
 
         /// <summary>
@@ -538,6 +523,7 @@ namespace WirelessObservation.View
                 {
                     controller.CloseSerialPort();
                     XmlHelper.SerializeToXml(App.SettingPath, App.Setting);
+
                     string jsonFile = App.Setting.Data.StorePath + "\\" + DateFormat(DateTime.UtcNow,"yyyyMMdd.json");
                     // json字符串
                     string jsonData = JsonConvert.SerializeObject(ChartData);
@@ -553,50 +539,18 @@ namespace WirelessObservation.View
                     //System.Diagnostics.Process tt = System.Diagnostics.Process.GetProcessById(System.Diagnostics.Process.GetCurrentProcess().Id);
                     //tt.Kill();
                 }
-                else if (a == MessageBoxResult.Cancel)
+                else
                 {
                     e.Cancel = true;
                     Console.WriteLine(e.ToString());
                     
                 }
-                else
-                {
-                    XmlHelper.SerializeToXml(App.SettingPath, App.Setting);
-                    string jsonFile = App.Setting.Data.StorePath + "\\" + DateFormat(DateTime.UtcNow, "yyyyMMdd.json");
-                    // json字符串
-                    string jsonData = JsonConvert.SerializeObject(ChartData);
-                    // 避免因为文件存在导致的冲突
-                    if (File.Exists(jsonFile)) File.Delete(jsonFile);
-                    // 以生成文件的方式写数据
-
-                    StreamWriter sw = new StreamWriter(jsonFile, false, Encoding.UTF8);
-                    // 将数据写入
-                    sw.WriteLine(jsonData);
-                    sw.Close();
-                    Environment.Exit(0);
-                }
+                
             }
-            
-        }
-
-        /// <summary>
-        /// 定时器回调函数
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void DispatcherTimer_Tick(object sender, EventArgs e)
-        {
-            DateTime now = DateTime.UtcNow;
-            DateTime nowMinute = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
-            String datFile = App.Setting.Data.DataPath + string.Format("\\{0:yyyyMMdd}.dat", now);
-            FileInfo fi = new FileInfo(datFile);
-            DateTime Ooclock = now.Date;
-            SetTitle(now);
-            // 每天零时将数据清空并缓存数据至本地json文件待调用
-
-            if (now.Equals(Ooclock) && ChartData.Count > 0)
+            else
             {
-                string jsonFile = App.Setting.Data.StorePath + "\\" + fi.Name + ".json";
+                XmlHelper.SerializeToXml(App.SettingPath, App.Setting);
+                string jsonFile = App.Setting.Data.StorePath + "\\" + DateFormat(DateTime.UtcNow, "yyyyMMdd.json");
                 // json字符串
                 string jsonData = JsonConvert.SerializeObject(ChartData);
                 // 避免因为文件存在导致的冲突
@@ -607,50 +561,72 @@ namespace WirelessObservation.View
                 // 将数据写入
                 sw.WriteLine(jsonData);
                 sw.Close();
-                ChartData.Clear();
-                App.Setting.Systemd.FileOffest = 0;
-
+                Environment.Exit(0);
             }
 
-            // 当前时间为与数据监听间隔吻合并且串口数据原型返回完整数据
-            DateTime lastWriteTime = new DateTime();
-            string recentlyFile = string.Empty;
-            long fileOffest = 0;
-            // 当前时间为与数据监听间隔吻合并且串口数据原型返回完整数据
-            if ((nowMinute - Ooclock).TotalSeconds % App.Setting.Collect.Interval == 0)
+        }
+
+        /// <summary>
+        /// 定时器回调函数
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void DispatcherTimer_Tick(object sender, EventArgs e)
+        {
+            if (App.Setting.Systemd.Download)
             {
-                if (Prototype.IndexOfAny(new char[] { '\r', '\n' }) >= 0)
+                SyncFiles();
+            }
+            
+            // 当前时间为与数据监听间隔吻合并且串口数据原型返回完整数据
+            DateTime lastWriteTime = App.Setting.Systemd.LastModify;
+            string recentlyFile = App.Setting.Systemd.RecentlyFile;
+            long fileOffest = App.Setting.Systemd.FileOffest;
+            DateTime now = DateTime.UtcNow;
+            DateTime nowMinute = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
+            string datFile = App.Setting.Data.DataPath + string.Format("\\{0:yyyyMMdd}.dat", now);
+            if (File.Exists(datFile))
+            {
+                FileInfo fi = new FileInfo(datFile);
+                DateTime Ooclock = now.Date;
+                SetTitle(now);
+                // 每天零时将数据清空并缓存数据至本地json文件待调用
+
+                if (now.Equals(Ooclock) && ChartData.Count > 0)
                 {
-                    // 数据不以$开始时，数据不包含,时丢弃数据
-                    if (Prototype.IndexOf("$") != 0 || !Prototype.Contains(","))
-                    {
-                        throw new Exception("");
-                    }
-                    // 获取被截断的数据
-                    List<string> split = Prototype.Split(new char[] { ',', '=' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                    // 正确的数据应该分割出来是5段字符串数组
-                    if (split.Count != 5)
-                    {
-                        throw new Exception("");
-                    }
+                    string jsonFile = App.Setting.Data.StorePath + "\\" + fi.Name + ".json";
+                    // json字符串
+                    string jsonData = JsonConvert.SerializeObject(ChartData);
+                    // 避免因为文件存在导致的冲突
+                    if (File.Exists(jsonFile)) File.Delete(jsonFile);
+                    // 以生成文件的方式写数据
 
-                    bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == 10 && entity.TimeStamp.Equals(nowMinute));
-
-                    // 截取出有用数据断
-                    split = split.Skip(2).Take(2).ToList();
-
-                    if (double.TryParse(split[0], out double ws)
-                            && int.TryParse(split[1], out int wd)
-                            && chartResult)
+                    StreamWriter sw = new StreamWriter(jsonFile, false, Encoding.UTF8);
+                    try
                     {
-                        ChartData.Add(new WindProfileRadarEntity(10, (ws * 100), wd, now));
+                        sw.WriteLine(jsonData);
                     }
-                    //////////////////////数据可用性检查通过///////////////////////////
+                    catch (Exception ex)
+                    {
+                        LogHelper.WriteLog(ex);
+                    }
+                    finally
+                    {
+                        sw.Close();
+                    }
+                    // 将数据写入
+                    
+                   
+                    ChartData.Clear();
+                    App.Setting.Systemd.FileOffest = 0;
+                    fileOffest = 0;
                 }
 
-                // 雷达文件存在并且当前数据长度大于上次采集
-                if (fi.Exists && fi.Length > App.Setting.Systemd.FileOffest)
+
+                // 当前时间为与数据监听间隔吻合并且串口数据原型返回完整数据
+                if (fi.Length > fileOffest)
                 {
+
                     // 创建雷达数据操作对象
                     Model.WindProfileRadar radar = new Model.WindProfileRadar(fi.FullName, App.Setting.Systemd.FileOffest);
                     // 接收是否到达文件结尾
@@ -665,25 +641,26 @@ namespace WirelessObservation.View
                             ChartData = ChartData.Union(t).ToList();
                         }
                     }
+                    radar.SR.Close();
                     lastWriteTime = fi.LastWriteTimeUtc;
-                    recentlyFile = string.Format("{0:yyyyMMdd}.dat", lastWriteTime);
+                    recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = fi.Length;
+
+                    // 读取本次需读取的雷达数据
+                    browser.ExecuteScriptAsync("SetChart()");
                 }
                 else if (!fi.Exists)
                 {
                     lastWriteTime = nowMinute;
-                    recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd.dat");
+                    recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = 0;
                 }
 
-
-                // 读取本次需读取的雷达数据
-                browser.ExecuteScriptAsync("SetChart()");
+                App.Setting.Systemd.LastModify = lastWriteTime;
+                App.Setting.Systemd.RecentlyFile = recentlyFile;
+                App.Setting.Systemd.FileOffest = fileOffest;
             }
-
-            App.Setting.Systemd.LastModify = lastWriteTime;
-            App.Setting.Systemd.RecentlyFile = recentlyFile;
-            App.Setting.Systemd.FileOffest = fileOffest;
+            
             if (IntervalCount > 8640)
             {
                 // 解决长时间运行时计时器出现异常的状况
@@ -709,11 +686,11 @@ namespace WirelessObservation.View
         /// <param name="e"></param>
         public void OpenComEvent(Object sender, SerialPortEventArgs e)
         {
-            if (this.CheckAccess())
-            {
-                this.Dispatcher.Invoke(new Action<Object, SerialPortEventArgs>(OpenComEvent), sender, e);
-                return;
-            }
+            //if (this.CheckAccess())
+            //{
+            //    //this.Dispatcher.Invoke(new Action<Object, SerialPortEventArgs>(OpenComEvent), sender, e);
+            //    return;
+            //}
 
 
             if (e.isOpend)  //Open successfully
@@ -727,8 +704,21 @@ namespace WirelessObservation.View
             }
             else    //Open failed
             {
+                MessageBoxResult dr = MessageBox.Show("未检测到相应串口数据，是否直接采集雷达数据", "请确认", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                if (dr == MessageBoxResult.OK)
+                {
+                    StartGather();
+                    browser.ExecuteScriptAsync("SetChart()");
+                    DispatcherTimer.Tick += new EventHandler(DispatcherTimer_Tick);
+                    DispatcherTimer.Start();
+                    GatherCB.Content = "结束采集";
+                }
+                else
+                {
+                    GatherCB.IsChecked = false;
+                }
                 //GatherCB.IsChecked = false;
-                MessageBox.Show("无法开启串口");
+               
             }
             
         }
@@ -740,11 +730,11 @@ namespace WirelessObservation.View
         /// <param name="e"></param>
         public void CloseComEvent(Object sender, SerialPortEventArgs e)
         {
-            if (CheckAccess())
-            {
-                Dispatcher.Invoke(new Action<Object, SerialPortEventArgs>(CloseComEvent), sender, e);
-                return;
-            }
+            //if (CheckAccess())
+            //{
+            //    Dispatcher.Invoke(new Action<Object, SerialPortEventArgs>(CloseComEvent), sender, e);
+            //    return;
+            //}
             try
             {
                 if (!e.isOpend) //close successfully
@@ -759,7 +749,8 @@ namespace WirelessObservation.View
                                     }
 
                                     ));
-                    
+                    //GatherCB.Content = "开始采集";
+
                 }
             }
             catch(Exception ex)
@@ -776,6 +767,11 @@ namespace WirelessObservation.View
         {
             try
             {
+                IsHistory = false;
+                if (App.Setting.Systemd.Download)
+                {
+                    SyncFiles();
+                }
                 string mod = "";
                 // 格式化最后数据转化日期
                 if (string.IsNullOrEmpty(App.Setting.Systemd.RecentlyFile))
@@ -784,15 +780,16 @@ namespace WirelessObservation.View
                 }
                 else
                 {
-                    Regex datePartten = new Regex(@"^(\d{4})(\d{2})(\d{2})\$");
-                    if (datePartten.Match(App.Setting.Systemd.RecentlyFile).Success)
-                        mod = App.Setting.Systemd.RecentlyFile;
-                    else
-                        mod = "19700101";
+                    Regex datePartten = new Regex(@"^(\d{4})(\d{2})(\d{2})$");
+                    mod = datePartten.Match(App.Setting.Systemd.RecentlyFile).Success ? App.Setting.Systemd.RecentlyFile : "19700101";
+                   
                 }
                 
+                //DateTime last = DateTime.ParseExact(mod, "yyyyMMdd", System.Globalization.CultureInfo.CurrentCulture);
                 DateTime last = DateTime.ParseExact(mod, "yyyyMMdd", System.Globalization.CultureInfo.CurrentCulture);
-                DateTime now = DateTime.Now;
+                if (last.CompareTo(DateTime.UtcNow) > 0) throw new Exception("time out of range");
+                DateTime now = DateTime.UtcNow;
+                SetTitle(now);
                 // 设置表格时间轴
                 SetTimeAxis();
                 
@@ -803,7 +800,7 @@ namespace WirelessObservation.View
                 var query = (from f in Directory.GetFiles(App.Setting.Data.DataPath, "*.dat")
                              let fi = new FileInfo(f)
                              orderby fi.LastWriteTime ascending
-                             where fi.LastWriteTime.CompareTo(last) >= 0 && fi.LastWriteTime.CompareTo(now) < 0
+                             where fi.Name.CompareTo(mod + ".dat") >= 0 && fi.Name.CompareTo(DateFormat(now, "yyyyMMdd") + ".dat") <= 0
                              select fi.FullName);
 
                 string[] flies = query.ToArray();
@@ -840,14 +837,28 @@ namespace WirelessObservation.View
                                     j++;
                                 }
                             }
+                            radar.SR.Close();
                         }
                         if (File.Exists(jsonFile))
                         {
                             StreamReader sr = new StreamReader(jsonFile, Encoding.UTF8);
-                            string jsonString = sr.ReadToEnd();
-                            List<WindProfileRadarEntity> jsonData = JsonConvert.DeserializeObject<List<WindProfileRadarEntity>>(jsonString);
-                            List<WindProfileRadarEntity> temp = jsonData.FindAll((WindProfileRadarEntity entity) => entity.Alt == 10);
-                            ChartData = ChartData.Union(temp).ToList();
+                            try
+                            {
+                                string jsonString = sr.ReadToEnd();
+                                List<WindProfileRadarEntity> jsonData = JsonConvert.DeserializeObject<List<WindProfileRadarEntity>>(jsonString);
+                                List<WindProfileRadarEntity> temp = jsonData.FindAll((WindProfileRadarEntity entity) => entity.Alt == 0);
+                                ChartData = ChartData.Union(temp).ToList();
+                            }
+                            catch(Exception ex)
+                            {
+                                LogHelper.WriteLog(ex);
+                            }
+                            finally
+                            {
+                                sr.Close();
+                            }
+                           
+                            
                         }
                         if (ChartData.Count > 0)
                         {
@@ -857,8 +868,20 @@ namespace WirelessObservation.View
                             // 以生成文件的方式写数据
 
                             StreamWriter sw = new StreamWriter(jsonFile, false, Encoding.UTF8);
-                            sw.WriteLine(jsonData);
-                            sw.Close();
+                            try
+                            {
+                                sw.WriteLine(jsonData);
+
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.WriteLog(ex);
+                            }
+                            finally
+                            {
+                                sw.Close();
+
+                            }
                         }
 
                     }
@@ -909,17 +932,25 @@ namespace WirelessObservation.View
             }
             try
             {
+                if (App.Setting.Systemd.Download)
+                {
+                    SyncFiles();
+                }
                 // 接收串口数据
                 string recived = Encoding.Default.GetString(e.receivedBytes);
                 // 追加至数据原型中
                 if (!string.IsNullOrEmpty(recived)) Prototype += recived;
-                
+
+                DateTime lastWriteTime = App.Setting.Systemd.LastModify;
+                string recentlyFile = App.Setting.Systemd.RecentlyFile;
+                long fileOffest = App.Setting.Systemd.FileOffest;
                 // 现在时间
-                DateTime now = DateTime.UtcNow;
+                DateTime now = DateTime.UtcNow; 
                 DateTime nowMinute = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute,0);
                 FileInfo fi = new FileInfo(App.Setting.Data.DataPath + "\\" + string.Format("{0:yyyyMMdd}.dat", now));
                 DateTime Ooclock = now.Date;
                 SetTitle(now);
+
                 // 每天零时将数据清空并缓存数据至本地json文件待调用
 
                 if (now.Equals(Ooclock) && ChartData.Count > 0)
@@ -932,92 +963,114 @@ namespace WirelessObservation.View
                     // 以生成文件的方式写数据
 
                     StreamWriter sw = new StreamWriter(jsonFile, false, Encoding.UTF8);
-                    // 将数据写入
-                    sw.WriteLine(jsonData);
-                    sw.Close();
+
+                    try
+                    {
+                        // 将数据写入
+                        sw.WriteLine(jsonData);
+                    }
+                    catch(Exception  ex)
+                    {
+                        LogHelper.WriteLog(ex);
+                    }
+                    finally
+                    {
+                        sw.Close();
+                    }
+
                     ChartData.Clear();
                     App.Setting.Systemd.FileOffest = 0;
+                    fileOffest = 0;
+                }
+                List<string> split = new List<string>();
+                if (Prototype.IndexOfAny(new char[] { '\r', '\n' }) >= 0)
+                {
+                    // 数据不以$开始时，数据不包含,时丢弃数据
+                    if (Prototype.IndexOf("$") != 0 || !Prototype.Contains(","))
+                    {
+                        throw new Exception("");
+                    }
+                    // 获取被截断的数据
+                    split = Prototype.Split(new char[] { ',', '=' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+                    // 正确的数据应该分割出来是5段字符串数组
+                    if (split.Count != 5)
+                    {
+                        throw new Exception("");
+                    }
+                    ////int lowestAlt = (int)ChartData.Min(X => X.Alt);
+                    //bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == 0 && entity.TimeStamp.Equals(dataTime));
+
+                    //// 截取出有用数据断
+                    //split = split.Skip(2).Take(2).ToList();
+
+                    //if (double.TryParse(split[0], out double ws)
+                    //        && int.TryParse(split[1], out int wd)
+                    //        && chartResult)
+                    //{
+                    //    ChartData.Add(new WindProfileRadarEntity(0, (ws * 100), wd, dataTime));
+                    //}
+                    //////////////////////数据可用性检查通过///////////////////////////
                 }
 
-                DateTime lastWriteTime = new DateTime();
-                string recentlyFile = string.Empty;
-                long fileOffest = 0;
                 // 当前时间为与数据监听间隔吻合并且串口数据原型返回完整数据
-                if ((nowMinute - Ooclock).TotalSeconds % App.Setting.Collect.Interval == 0)
+                if (fi.Exists && fi.Length > fileOffest)
                 {
-                    if (Prototype.IndexOfAny(new char[] { '\r', '\n' }) >= 0)
-                    {
-                        // 数据不以$开始时，数据不包含,时丢弃数据
-                        if (Prototype.IndexOf("$") != 0 || !Prototype.Contains(","))
-                        {
-                            throw new Exception("");
-                        }
-                        // 获取被截断的数据
-                        List<string> split = Prototype.Split(new char[] { ',', '=' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-                        // 正确的数据应该分割出来是5段字符串数组
-                        if (split.Count != 5)
-                        {
-                            throw new Exception("");
-                        }
+                    DateTime dataTime = new DateTime();
 
-                        bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == 10 && entity.TimeStamp.Equals(nowMinute));
-
-                        // 截取出有用数据断
-                        split = split.Skip(2).Take(2).ToList();
-
-                        if (double.TryParse(split[0], out double ws)
-                                && int.TryParse(split[1], out int wd)
-                                && chartResult)
-                        {
-                            ChartData.Add(new WindProfileRadarEntity(10, (ws * 100), wd, now));
-                        }
-                        //////////////////////数据可用性检查通过///////////////////////////
-                    }
 
                     // 雷达文件存在并且当前数据长度大于上次采集
-                    if (fi.Exists && fi.Length > App.Setting.Systemd.FileOffest)
-                    {
-                        // 创建雷达数据操作对象
-                        Model.WindProfileRadar radar = new Model.WindProfileRadar(fi.FullName, App.Setting.Systemd.FileOffest);
-                        // 接收是否到达文件结尾
-                        bool eof = false;
 
-                        while (!eof)
+                    // 创建雷达数据操作对象
+                    Model.WindProfileRadar radar = new Model.WindProfileRadar(fi.FullName, App.Setting.Systemd.FileOffest);
+                    // 接收是否到达文件结尾
+                    bool eof = false;
+
+                    while (!eof)
+                    {
+                        List<WindProfileRadarEntity> t = radar.GetSectionData(out eof);
+                        dataTime = t[0].TimeStamp;
+                        if (t != null)
                         {
-                            List<WindProfileRadarEntity> t = radar.GetSectionData(out eof);
-                            if (t != null)
-                            {
-                                // 将数据合并至ChartData数组
-                                ChartData = ChartData.Union(t).ToList();
-                            }
+                            // 将数据合并至ChartData数组
+                            ChartData = ChartData.Union(t).ToList();
                         }
-                        lastWriteTime = fi.LastWriteTimeUtc;
-                        recentlyFile = string.Format("{0:yyyyMMdd}.dat", lastWriteTime);
-                        fileOffest = fi.Length;
                     }
-                    else if (!fi.Exists)
-                    {
-                        lastWriteTime = nowMinute;
-                        recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd.dat");
-                        fileOffest = 0;
-                    }
-                    
+                    radar.SR.Close();
+                    // 检查数据集中是否有高度为0时间与当前PA-XS数据相同的数据没有true 有false
+                    bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == 0 && entity.TimeStamp.Equals(dataTime));
 
+                    // 截取出有用数据断
+                    split = split.Skip(2).Take(2).ToList();
+
+                    if (double.TryParse(split[0], out double ws)
+                            && int.TryParse(split[1], out int wd)
+                            && chartResult)
+                    {
+                        ChartData.Add(new WindProfileRadarEntity(0, (ws * 100), wd, dataTime));
+                        Prototype = string.Empty;
+                    }
+                    lastWriteTime = fi.LastWriteTimeUtc;
+                    recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
+                    fileOffest = fi.Length;
+                }
+                else if (!fi.Exists)
+                {
+                    lastWriteTime = nowMinute;
+                    recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
+                    fileOffest = 0;
+                }
+                
                     // 读取本次需读取的雷达数据
                     browser.ExecuteScriptAsync("SetChart()");
-                }
-
+                
                 App.Setting.Systemd.LastModify = lastWriteTime;
                 App.Setting.Systemd.RecentlyFile = recentlyFile;
                 App.Setting.Systemd.FileOffest = fileOffest;
-
-                if (Prototype.IndexOfAny(new char[] { '\r', '\n' }) >= 0)
-                    Prototype = string.Empty;
-                
             }
             catch(Exception exc)
             {
                 Prototype = string.Empty;
+                LogHelper.WriteLog(exc);
                 return;
             }
         }
@@ -1025,17 +1078,33 @@ namespace WirelessObservation.View
         /// <summary>
         /// 设置表格时间轴项目数组
         /// </summary>
-        public static void SetTimeAxis()
+        public static void SetTimeAxis(int timeRange = 144)
         {
             List<String> temporary = new List<string>();
-            DateTime Ooclock = DateTime.Now.Date;
-            DateTime tomorrow = Ooclock.AddDays(1);
-            while (Ooclock.CompareTo(tomorrow) < 0)
+            if (timeRange > 144)
             {
-                temporary.Add(DateFormat(Ooclock, "HH:mm"));
-                int interval = (int)App.Setting.Collect.Interval;
-                Ooclock = Ooclock.AddSeconds(interval);
+                DateTime Ooclock = StartTime.Date;
+                DateTime tomorrow = EndTime.Date.AddDays(1);
+                while (Ooclock.CompareTo(tomorrow) < 0)
+                {
+                    temporary.Add(DateFormat(Ooclock, "dd日 HH:mm"));
+                    int interval = (int)App.Setting.Collect.Interval;
+                    Ooclock = Ooclock.AddSeconds(interval);
+                }
             }
+            else
+            {
+                DateTime Ooclock = DateTime.UtcNow.Date;
+                DateTime tomorrow = Ooclock.AddDays(1);
+                while (Ooclock.CompareTo(tomorrow) < 0)
+                {
+                    temporary.Add(DateFormat(Ooclock, "HH:mm"));
+                    int interval = (int)App.Setting.Collect.Interval;
+                    Ooclock = Ooclock.AddSeconds(interval);
+                }
+            }
+            
+            
             timeAxis = temporary.ToArray();
         }
 
@@ -1148,7 +1217,94 @@ namespace WirelessObservation.View
             return result;
         }
 
+        #region SyncFiles
+        /// <summary>
+        /// 同步服务器及本地文件
+        /// </summary>
+        /// <returns></returns>
+        public int SyncFiles()
+        {
+            long offset = App.Setting.Systemd.FileOffest;
+            string recently = App.Setting.Systemd.RecentlyFile;
+            string dataPath = App.Setting.Data.DataPath;
+            string host = App.Setting.Systemd.Hostname;
+            string name = App.Setting.Systemd.Username;
+            string pass = App.Setting.Systemd.Password;
+            string remotePath = App.Setting.Systemd.RemotePath;
+            int count = 0;
+            if (!string.IsNullOrEmpty(host) && !string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(pass)) return 0;
+            SFTPHelper sftp = new SFTPHelper(host, name, pass);
+            sftp.Connect();
+            try
+            {
+                if (sftp.Connected)
+                {
+                    
+                    if (string.IsNullOrEmpty(recently))
+                    {
+                        var filelist = sftp.GetFileList(remotePath, "dat");
+                        foreach (string file in filelist)
+                        {
+                            sftp.Get(remotePath + "/" + file, dataPath + "\\" + file);
+                            count++;
+                        }
+                        
+                    }
+                    else
+                    {
+                        if (string.IsNullOrEmpty(recently) || recently.CompareTo("20190101") < 0) return 0;
+                        IFormatProvider ifp = new System.Globalization.CultureInfo("zh-CN", true);
+                        ;
+                        if (DateTime.TryParseExact(recently, "yyyyMMdd", ifp, System.Globalization.DateTimeStyles.None, out DateTime recentTime))
+                        {
+                            
+                            var Ftpfiles = sftp.GetFileList(remotePath, "dat");
+                            while (recentTime.CompareTo(DateTime.UtcNow.Date) <= 0)
+                            {
+                                string file = DateFormat(recentTime, "yyyyMMdd") + ".dat";
+
+                                string res = Ftpfiles.Find(s => s.Equals(file));
+                                if (string.IsNullOrEmpty(res))
+                                {
+                                    recentTime = recentTime.AddDays(1);
+                                }
+
+                                long ftpfile = sftp.GetFileSize(remotePath + "/" + file);
+                                
+                                FileInfo fi = new FileInfo(dataPath + "\\" + file);
+                                if (!fi.Exists || offset < ftpfile)
+                                {
+                                    sftp.Get(remotePath + "/" + file, dataPath + "\\" + file);
+                                }
+                                count++;
+                                recentTime = recentTime.AddDays(1);
+                            }
+                        }
+
+
+                    }
+                }
+                
+            }
+            catch(Exception ex)
+            {
+                LogHelper.WriteLog(ex);
+            }
+            finally
+            {
+                sftp.Disconnect();
+            }
+
+            
+            return count;
+
+        }
         #endregion
+
+        #endregion
+
+
+
     }
 
     public class JsEvent
@@ -1156,6 +1312,7 @@ namespace WirelessObservation.View
         private string messageText = "111";
         private List<String> xSeries = new List<string>();
         private DateTime title = new DateTime();
+        List<List<List<string>>> res = new List<List<List<string>>>();
         
         public void ShowTest(string aaa)
         {
@@ -1172,7 +1329,16 @@ namespace WirelessObservation.View
 
         public String GetTitle()
         {
-            return MainWindow.StartTime.ToLongDateString().ToString();
+            string title = string.Empty;
+            if (MainWindow.IsHistory)
+            {
+                title = MainWindow.StartTime.ToLongDateString().ToString() + "至" + MainWindow.EndTime.ToLongDateString().ToString();
+            }
+            else
+            {
+                title = MainWindow.StartTime.ToLongDateString().ToString();
+            }
+            return title;
         }
 
         
@@ -1185,6 +1351,7 @@ namespace WirelessObservation.View
             
             XSeries = MainWindow.TimeAxis.ToList();
             int[] threshold = new int[] { 0, 1, 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 60, 999 };
+            
             List<List<List<string>>> res = new List<List<List<string>>>();
             try
             {
@@ -1193,29 +1360,36 @@ namespace WirelessObservation.View
                 {
                     res.Add(new List<List<string>>());
                 }
-                if (MainWindow.ChartData != null)
+
+                foreach (WindProfileRadarEntity wpre in MainWindow.ChartData)
                 {
-                    foreach (WindProfileRadarEntity wpre in MainWindow.ChartData)
+                    int index = 0;
+                    for (int j = 0; j < threshold.Length; j++)
                     {
-                        int index = 0;
-                        for (int j = 0; j < threshold.Length; j++)
+                        if ((wpre.Speed / 100) <= threshold[j])
                         {
-                            if ((wpre.Speed / 100) <= threshold[j])
-                            {
-                                index = j - 1;
-                                break;
-                            }
+                            index = j - 1;
+                            break;
                         }
-                        string speedRange = string.Format("{0:D}-{1:D}", threshold[index], threshold[index + 1]);
-                        String timeStamp = MainWindow.DateFormat(wpre.TimeStamp, "HH时mm分");
-                        // [x,y,dir,speedRange]
-                        // 当前数据有相同风速数据进入数组
-                        DateTime Ooclock = wpre.TimeStamp.Date;
-                        TimeSpan ts = wpre.TimeStamp - Ooclock;
-                        res[index].Add(new List<string> { (ts.TotalSeconds / App.Setting.Collect.Interval).ToString(), wpre.Alt.ToString(), wpre.Direction.ToString(), speedRange, (wpre.Speed / 100).ToString(), MainWindow.DateFormat(wpre.TimeStamp, "HH时mm分") });
                     }
+                    string speedRange = string.Format("{0:D}-{1:D}", threshold[index], threshold[index + 1]);
+                    string timeStamp = MainWindow.DateFormat(wpre.TimeStamp, "HH时mm分");
+                    string dir = WindDirection.GetFormatDir(wpre.Direction);
+                    DateTime temp = MainWindow.ChartData.Min(s => s.TimeStamp).Date;
+
+                    // [x,y,dir,speedRange]
+                    // 当前数据有相同风速数据进入数组
+                    DateTime Ooclock = temp;
+                    TimeSpan ts = wpre.TimeStamp - Ooclock;
+
+                    res[index].Add(new List<string> { (ts.TotalSeconds / App.Setting.Collect.Interval).ToString(), wpre.Alt.ToString(),
+                            wpre.Direction.ToString(), speedRange,
+                            (wpre.Speed / 100).ToString(), MainWindow.DateFormat(wpre.TimeStamp, "HH时mm分"),
+                            dir
+                        });
                 }
-                
+
+
             }
             catch(Exception ex)
             {

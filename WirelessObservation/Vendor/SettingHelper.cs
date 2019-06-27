@@ -13,7 +13,7 @@ namespace WirelessObservation.Vendor
     public class SettingHelper
     {
         /// <summary>
-        /// 设置输出json文件存储文职
+        /// 设置输出json文件存储位置
         /// </summary>
         /// <param name="storePath"></param>
         static public void SetOutPutFilePos(string storePath)
@@ -30,8 +30,9 @@ namespace WirelessObservation.Vendor
                 {
                     try
                     {
+                        // 避免冲突删除源文件
+                        if (File.Exists(storePath + "\\" + shortName)) File.Delete(storePath + "\\" + shortName);
                         File.Move(file, storePath + "\\" + shortName);
-
                     }
                     catch (Exception ex)
                     {

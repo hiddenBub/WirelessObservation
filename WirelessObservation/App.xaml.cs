@@ -76,15 +76,16 @@ namespace WirelessObservation
                     bool isChinese = Vendor.PublicHelper.IsChineseSimple();
                     string shotcutName = Vendor.PublicHelper.IsChineseSimple() ? "无线采集系统.lnk" : ProjectName+".lnk";
                     WshShell shell = new WshShell();
-                    IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(System.IO.Path.Combine(desktopPath, shotcutName));
-
-
+                    IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(Path.Combine(desktopPath, shotcutName));
                     //string shotcutName = "无线采集系统.lnk";
                     //string shortcutAddress = Path.Combine(desktopPath, shotcutName);
                     //IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut(shortcutAddress);
                     shortcut.Description = "无线采集系统";
                     //shortcut.Hotkey = "Ctrl+Shift+N";
-                    shortcut.TargetPath = AppDomain.CurrentDomain.BaseDirectory + ProjectName + ".exe";
+                    //shortcut.TargetPath = AppDomain.CurrentDomain.BaseDirectory + ProjectName + ".exe";
+                    shortcut.TargetPath = Environment.CurrentDirectory + "\\" + ProjectName + ".exe";
+
+                    Console.WriteLine(AppDomain.CurrentDomain.BaseDirectory);
                     shortcut.Save();
                     string DataPath = Environment.CurrentDirectory + "\\source";
                     string StorePath = Environment.CurrentDirectory + "\\json";
@@ -101,13 +102,14 @@ namespace WirelessObservation
                         {
                             DataPath = DataPath,
                             StorePath = StorePath,
-                            
                         },
                         Systemd = new Systemd
                         {
                             RecentlyFile = "",
                             FileOffest = 0,
                             LastModify = new DateTime(),
+                            ComPort     = "COM10",
+                            DevMode     = false,
                         }
                     };
                     Vendor.XmlHelper.SerializeToXml(SettingPath, setting);

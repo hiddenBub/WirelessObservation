@@ -17,13 +17,14 @@
                         <MenuItem Header="设置数据存储位置" Name="SetStorePosBtn" Click="SetStorePosBtn_Click"></MenuItem>
                     </MenuItem>
                 </Menu>
+                <Button Name="CollectBtn" Content="采集设置" Click="CollectBtn_Click"></Button>
                 <CheckBox Name="GatherCB" Content="开始采集" Checked="GatherCB_Checked" Unchecked="GatherCB_Unchecked"></CheckBox>
                 <!--<CheckBox Name="IntervalCB" Content="实时更新数据" Checked="IntervalCB_Checked" Unchecked="IntervalCB_Unchecked"></CheckBox>-->
                 <!--<Button Name="ExportBtn" Content="导出数据" Click="ExportBtn_Click" />-->
                 <Button Name="HistoryBtn" Content="历史数据" Click="HistoryBtn_Click" />
                 <Button Name="ResetData" Content="重置数据" VerticalAlignment="Bottom" Margin="0,0,0,1" Click="ResetData_Click" />
                 <Button Name="HelpBtn" Content="帮助" Click="HelpBtn_Click" />
-                <!--<Button Name="test" Content="test" Click="test_Click"></Button>-->
+                <Button Name="test" Content="test" Click="test_Click"></Button>
             </ToolBar>
             <Grid x:Name="Chart" DockPanel.Dock="Top" Margin="5" >
                 <!--<cefSharpWPF:ChromiumWebBrowser Address="http://echarts.baidu.com/examples/editor.html?c=bar-animation-delay" />-->

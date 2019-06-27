@@ -16,20 +16,20 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="60"></ColumnDefinition>
                     <ColumnDefinition></ColumnDefinition>
-                    <ColumnDefinition Width="60"></ColumnDefinition>
-                    <ColumnDefinition></ColumnDefinition>
+                    <!--<ColumnDefinition Width="60"></ColumnDefinition>
+                    <ColumnDefinition></ColumnDefinition>-->
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="30"></RowDefinition>
-                    <RowDefinition ></RowDefinition>
+                    <RowDefinition Height="30"></RowDefinition>
                 </Grid.RowDefinitions>
                 <TextBlock Text="起始时间:" Margin="5"  HorizontalAlignment="Center" Grid.Row="0" Grid.Column="0" ></TextBlock>
-                <timeTool:Dameer TextBoxBase.TextChanged="TimeBar_Changed" HorizontalAlignment="Center" Grid.Column="1"  Name="StartTime" Format="Custom" CustomFormat="yyyy-MM-dd" ShowCheckBox="False" RenderTransformOrigin="1.28,0.524"></timeTool:Dameer>
-                <TextBlock Text="结束时间:" Margin="5" HorizontalAlignment="Center" Grid.Row="0" Grid.Column="2"></TextBlock>
-                <timeTool:Dameer TextBoxBase.TextChanged="TimeBar_Changed" HorizontalAlignment="Center" Grid.Column="3" Name="EndTime" Format="Custom" CustomFormat="yyyy-MM-dd" ShowCheckBox="False"></timeTool:Dameer>
-                <StackPanel Grid.Row="1" Orientation="Vertical" Grid.ColumnSpan="4">
+                <timeTool:Dameer TextBoxBase.TextChanged="TimeBar_Changed" HorizontalAlignment="Center" Grid.Row="0" Grid.Column="1"  Name="StartTime" Format="Custom" CustomFormat="yyyy-MM-dd" ShowCheckBox="False" RenderTransformOrigin="1.28,0.524"></timeTool:Dameer>
+                <TextBlock Text="结束时间:" Margin="5" HorizontalAlignment="Center" Grid.Row="1" Grid.Column="0"></TextBlock>
+                <timeTool:Dameer TextBoxBase.TextChanged="TimeBar_Changed" HorizontalAlignment="Center" Grid.Row="1" Grid.Column="1" Name="EndTime" Format="Custom" CustomFormat="yyyy-MM-dd" ShowCheckBox="False"></timeTool:Dameer>
+                <!--<StackPanel Grid.Row="1" Orientation="Vertical" Grid.ColumnSpan="4">
                     <view:ScrollList Height="180" x:Name="FileList" ></view:ScrollList>
-                </StackPanel>
+                </StackPanel>-->
             </Grid>
             <!--<StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                 <StackPanel   Margin="5" Orientation="Horizontal" HorizontalAlignment="Center">
