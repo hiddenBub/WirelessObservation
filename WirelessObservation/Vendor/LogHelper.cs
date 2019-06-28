@@ -9,6 +9,7 @@ namespace WirelessObservation.Vendor
     class LogHelper
     {
         static string AppLogPath = AppDomain.CurrentDomain.BaseDirectory + "log/";
+        static string AppAccPath = AppDomain.CurrentDomain.BaseDirectory + "acc/";
 
         public static void WriteLog(Exception ex,string additional="")
         {
@@ -28,6 +29,19 @@ namespace WirelessObservation.Vendor
                 sb.Append(additional + "\n\r");
             }
             System.IO.File.AppendAllText(AppLogPath + System.DateTime.Now.ToString("yyyy-MM-dd") + ".log", sb.ToString());
+        }
+
+        public static void WriteData(string str)
+        {
+            if (!System.IO.Directory.Exists(AppAccPath))
+                System.IO.Directory.CreateDirectory(AppAccPath);
+            StringBuilder sb = new StringBuilder("");
+            string currentTime = System.DateTime.Now.ToString("[yyyy-MM-dd HH:mm:ss]");
+            
+            sb.Append("\n\r");
+            sb.Append(currentTime + "\n\r");
+            sb.Append(str + "\n\r");
+            System.IO.File.AppendAllText(AppLogPath + System.DateTime.Now.ToString("yyyy-MM-dd") + ".acc", sb.ToString());
         }
     }
 }

@@ -396,13 +396,15 @@ namespace WirelessObservation.View
         /// <param name="e"></param>
         private void test_Click(object sender, RoutedEventArgs e)
         {
-            SFTPHelper sftp = new SFTPHelper("192.168.24.218", "root", "111111");
-            sftp.Connect();
-            var filelist = sftp.GetFileList("/home","sh");
-            var fl = sftp.GetFileSize("/home/item.sh");
-            FileInfo fi = new FileInfo(@"C:\Users\Mloong\Desktop\test\item.sh");
-            long size = fi.Length;
-            sftp.Disconnect();
+            var dt = DateTime.UtcNow;
+            var Oclock = dt.Date;
+            var tsMinuate = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0);
+            TimeSpan ts1 = new TimeSpan( Oclock.Ticks);
+            TimeSpan ts2 = new TimeSpan(tsMinuate.Ticks);
+            TimeSpan ts3 = ts1.Subtract(ts2).Duration();
+
+            Int16 minutes = (Int16) ts3.TotalMinutes;
+            Int32 moudle = minutes % 10;
 
             
             
@@ -979,12 +981,13 @@ namespace WirelessObservation.View
                     }
 
                     ChartData.Clear();
-                    App.Setting.Systemd.FileOffest = 0;
+                    
                     fileOffest = 0;
                 }
                 List<string> split = new List<string>();
                 if (Prototype.IndexOfAny(new char[] { '\r', '\n' }) >= 0)
                 {
+                    
                     // 数据不以$开始时，数据不包含,时丢弃数据
                     if (Prototype.IndexOf("$") != 0 || !Prototype.Contains(","))
                     {
@@ -995,6 +998,7 @@ namespace WirelessObservation.View
                     // 正确的数据应该分割出来是5段字符串数组
                     if (split.Count != 5)
                     {
+                        //LogHelper.WriteData(Prototype);
                         throw new Exception("");
                     }
                     ////int lowestAlt = (int)ChartData.Min(X => X.Alt);
@@ -1028,27 +1032,31 @@ namespace WirelessObservation.View
                     while (!eof)
                     {
                         List<WindProfileRadarEntity> t = radar.GetSectionData(out eof);
-                        dataTime = t[0].TimeStamp;
-                        if (t != null)
+                        if (t.Count>0)
                         {
-                            // 将数据合并至ChartData数组
-                            ChartData = ChartData.Union(t).ToList();
+                            
+                            foreach (WindProfileRadarEntity en in t)
+                            {
+                                bool check = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == en.Alt && entity.TimeStamp==en.TimeStamp);
+                                if (check)
+                                {
+                                    t.Remove(en);
+                                }
+                            }
+                            
+                            if (t.Count > 0)
+                            {
+                                // 将数据合并至ChartData数组
+                                ChartData = ChartData.Union(t).ToList();
+                                // 读取本次需读取的雷达数据
+                                browser.ExecuteScriptAsync("SetChart()");
+                            }
+                            
                         }
                     }
                     radar.SR.Close();
                     // 检查数据集中是否有高度为0时间与当前PA-XS数据相同的数据没有true 有false
-                    bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == 0 && entity.TimeStamp.Equals(dataTime));
-
-                    // 截取出有用数据断
-                    split = split.Skip(2).Take(2).ToList();
-
-                    if (double.TryParse(split[0], out double ws)
-                            && int.TryParse(split[1], out int wd)
-                            && chartResult)
-                    {
-                        ChartData.Add(new WindProfileRadarEntity(0, (ws * 100), wd, dataTime));
-                        Prototype = string.Empty;
-                    }
+                    
                     lastWriteTime = fi.LastWriteTimeUtc;
                     recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = fi.Length;
@@ -1059,9 +1067,27 @@ namespace WirelessObservation.View
                     recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = 0;
                 }
+                TimeSpan ts1 = new TimeSpan(Ooclock.Ticks);
+                TimeSpan ts2 = new TimeSpan(nowMinute.Ticks);
+               
+
+                if (split.Count == 5 && ts1.Subtract(ts2).TotalSeconds % App.Setting.Collect.Interval == 0 )
+                {
+                    // 截取出有用数据断
+                    split = split.Skip(2).Take(2).ToList();
+                    bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == 0 && entity.TimeStamp.Equals(nowMinute));
+                    if (double.TryParse(split[0], out double ws)
+                        && int.TryParse(split[1], out int wd)
+                        && chartResult)
+                    {
+                        ChartData.Add(new WindProfileRadarEntity(0, (ws * 100), wd, nowMinute));
+                        // 读取本次需读取的雷达数据
+                        browser.ExecuteScriptAsync("SetChart()");
+                        Prototype = string.Empty;
+                    }
+                }
                 
-                    // 读取本次需读取的雷达数据
-                    browser.ExecuteScriptAsync("SetChart()");
+                
                 
                 App.Setting.Systemd.LastModify = lastWriteTime;
                 App.Setting.Systemd.RecentlyFile = recentlyFile;
@@ -1070,7 +1096,11 @@ namespace WirelessObservation.View
             catch(Exception exc)
             {
                 Prototype = string.Empty;
-                LogHelper.WriteLog(exc);
+                if (exc.Message != string.Empty)
+                {
+                    LogHelper.WriteLog(exc);
+
+                }
                 return;
             }
         }
