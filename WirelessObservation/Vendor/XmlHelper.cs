@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WirelessObservation.Vendor
 {
-    class XmlHelper
+    public class XmlHelper
     {
         #region XML 序列化 / 反序列化
         /// <summary>     
@@ -26,7 +26,9 @@ namespace WirelessObservation.Vendor
                     ns.Add("", ""); System.Xml.Serialization.XmlSerializer xs = new System.Xml.Serialization.XmlSerializer(typeof(T)); xs.Serialize(writer, obj, ns);
                 }
             }
-            catch (Exception ex) { }
+            catch (Exception ex) {
+                LogHelper.WriteLog(ex);
+            }
         }
         /// <summary>     
         /// 从某一XML文件反序列化到某一类型   

@@ -49,11 +49,11 @@ namespace WirelessObservation
                 // 注册按键抬起事件
                 EndTime.PreviewKeyUp += new KeyEventHandler(TimeBar_KeyUp);
                 /************************************************************************/
-                string file = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
+                string file = (from f in Directory.GetFiles(Vendor.SettingHelper.setting.Files.StorePath, "*.json")
                                       let fi = new FileInfo(f)
                                       select fi.Name).Min();
                 string fileName = System.IO.Path.GetFileNameWithoutExtension(file);
-                //DateTime earlist = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
+                //DateTime earlist = (from f in Directory.GetFiles(setting.Data.StorePath, "*.json")
                 //let fi = new FileInfo(f)
                 //select fi.LastWriteTime).Min();
                 DateTime earlist = DateTime.ParseExact(fileName, "yyyyMMdd", System.Globalization.CultureInfo.GetCultureInfo("en"));
@@ -86,7 +86,7 @@ namespace WirelessObservation
 
         private string[] GetDataFiles(DateTime start, DateTime end)
         {
-            string[] files = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
+            string[] files = (from f in Directory.GetFiles(Vendor.SettingHelper.setting.Files.StorePath, "*.json")
                               let fi = new FileInfo(f)
                               orderby fi.LastWriteTime ascending
                               where fi.LastWriteTime.CompareTo(start) >= 0 && fi.LastWriteTime.CompareTo(end) < 0

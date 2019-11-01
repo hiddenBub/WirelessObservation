@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace WirelessObservation.Vendor
 {
-    class Shortcut
+    public class Shortcut
     {
         [StructLayout(LayoutKind.Sequential)]
         public struct FILETIME

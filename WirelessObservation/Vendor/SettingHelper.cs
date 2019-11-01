@@ -12,6 +12,7 @@ namespace WirelessObservation.Vendor
 {
     public class SettingHelper
     {
+        public static Setting setting = new Setting();
         /// <summary>
         /// 设置输出json文件存储位置
         /// </summary>
@@ -19,7 +20,7 @@ namespace WirelessObservation.Vendor
         static public void SetOutPutFilePos(string storePath)
         {
             Regex reg = new Regex(@"^(\d{4})(\d{2})(\d{2})\.json$");
-            var files = (from f in Directory.GetFiles(App.Setting.Data.StorePath, "*.json")
+            var files = (from f in Directory.GetFiles(setting.Files.StorePath, "*.json")
                          let fi = new FileInfo(f)
                          select fi.FullName).ToArray();
             foreach (string file in files)
@@ -42,14 +43,14 @@ namespace WirelessObservation.Vendor
                 }
 
             }
-            App.Setting.Data.StorePath = storePath;
+            setting.Files.StorePath = storePath;
         }
 
 
         static public void ResetData()
         {
             // 获取指定文件夹下以last起始至现在所有的文件
-            var query = (from f in Directory.GetFiles(App.Setting.Data.DataPath, "*.json")
+            var query = (from f in Directory.GetFiles(setting.Files.StorePath, "*.json")
                          let fi = new FileInfo(f)
                          select fi.FullName);
 
@@ -59,25 +60,46 @@ namespace WirelessObservation.Vendor
                 File.Delete(Flie);
             }
 
-            Setting setting = new Setting
-            {
-                Collect = new Collect
-                {
-                    Interval = 600,
-
-                },
-                Systemd = new Systemd
-                {
-                    RecentlyFile = "",
-                    FileOffest = 0,
-                    LastModify = new DateTime(),
-                }
-            };
-            // 更新程序内使用的配置实体
-            App.Setting.Collect.Interval = 600;
-            App.Setting.Systemd.RecentlyFile = "";
-            App.Setting.Systemd.LastModify = new DateTime();
-            App.Setting.Systemd.FileOffest = 0;
+            setting = new Setting();
         }
+
+        /// <summary>
+        /// 初始化配置
+        /// </summary>
+        public static void Init()
+        {
+            if (File.Exists(App.SettingPath))
+            {
+                setting = XmlHelper.DeserializeFromXml<Setting>(App.SettingPath);
+            }
+            else
+            {
+                Save();
+            }
+
+        }
+
+        /// <summary>
+        /// 保存配置
+        /// </summary>
+        public static void Save()
+        {
+            if (setting.Collect == null)
+            {
+
+                Collect collect = new Collect();
+                //Data data = new Data();
+                Systemd systemd = new Systemd();
+                Files files = new Files();
+                setting.Collect = collect;
+                setting.Files = files;
+                //setting.Data = data;
+                setting.Systemd = systemd;
+            }
+
+            XmlHelper.SerializeToXml(App.SettingPath, setting);
+            
+        }
+
     }
 }

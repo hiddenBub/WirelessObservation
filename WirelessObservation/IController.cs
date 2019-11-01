@@ -120,7 +120,8 @@ namespace WirelessObservation
         /// <param name="parity"></param>
         /// <param name="handshake"></param>
         public void OpenSerialPort(string portName, string baudRate,
-            string dataBits, string stopBits, string parity, string handshake)
+            string dataBits, string stopBits,
+            string parity, string handshake)
         {
             if (portName != null && portName != "")
             {
