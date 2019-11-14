@@ -43,16 +43,16 @@ namespace WirelessObservation.Model
             
             if (matchCollection.Count > 0 && matchCollection.Count == 1)
             {
-                speed = Convert.ToDouble(matchCollection[0].Groups[1].Value) * 100;
+                speed = Convert.ToDouble(matchCollection[0].Groups[1].Value);
                 direction = Convert.ToInt32(matchCollection[0].Groups[2].Value);
             }
             else if (matchCollection.Count > 0)
             {
                 int index = matchCollection.Count - 1;
-                speed = Convert.ToDouble(matchCollection[index].Groups[1].Value) * 100;
+                speed = Convert.ToDouble(matchCollection[index].Groups[1].Value);
                 direction = Convert.ToInt32(matchCollection[index].Groups[2].Value);
             }
-            windProfileRadarEntity = new WindProfileRadarEntity(height, speed, direction, fomat);
+            windProfileRadarEntity = new WindProfileRadarEntity(height, speed * 100, direction, fomat);
 
             return windProfileRadarEntity;
         }
