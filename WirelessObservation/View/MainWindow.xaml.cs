@@ -547,15 +547,17 @@ namespace WirelessObservation.View
         /// <param name="e"></param>
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            string jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + DateFormat(DateTime.UtcNow, "yyyyMMdd") + ".json";
             if (IsGather)
             {
                 MessageBoxResult a = MessageBox.Show("程序正在采集中，是否结束采集并退出程序", "警告", MessageBoxButton.YesNoCancel);
+                
                 if (a == MessageBoxResult.Yes)
                 {
                     controller.CloseSerialPort();
                     XmlHelper.SerializeToXml(App.SettingPath, Vendor.SettingHelper.setting);
 
-                    string jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + DateFormat(DateTime.UtcNow,"yyyyMMdd.json");
+                    
                     // json字符串
                     string jsonData = JsonConvert.SerializeObject(ChartData);
                     // 避免因为文件存在导致的冲突
@@ -581,7 +583,7 @@ namespace WirelessObservation.View
             else
             {
                 XmlHelper.SerializeToXml(App.SettingPath, Vendor.SettingHelper.setting);
-                string jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + DateFormat(DateTime.UtcNow, "yyyyMMdd.json");
+                
                 // json字符串
                 string jsonData = JsonConvert.SerializeObject(ChartData);
                 // 避免因为文件存在导致的冲突
@@ -613,9 +615,9 @@ namespace WirelessObservation.View
             DateTime lastWriteTime = Vendor.SettingHelper.setting.Systemd.LastModify;
             string recentlyFile = Vendor.SettingHelper.setting.Systemd.RecentlyFile;
             long fileOffest = Vendor.SettingHelper.setting.Systemd.FileOffest;
-            DateTime now = DateTime.UtcNow;
+            DateTime now = SettingHelper.setting.Systemd.UtcTime ? DateTime.UtcNow : DateTime.Now;
             DateTime nowMinute = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
-            string datFile = Vendor.SettingHelper.setting.Files.DataPath + string.Format("\\{0:yyyyMMdd}.dat", now);
+            string datFile = Vendor.SettingHelper.setting.Files.DataPath + DateFormat(now, "yyyyMMdd") + ".dat";
             if (File.Exists(datFile))
             {
                 FileInfo fi = new FileInfo(datFile);
@@ -673,7 +675,7 @@ namespace WirelessObservation.View
                         }
                     }
                     radar.SR.Close();
-                    lastWriteTime = fi.LastWriteTimeUtc;
+                    lastWriteTime = SettingHelper.setting.Systemd.UtcTime ? fi.LastWriteTimeUtc : fi.LastWriteTime;
                     recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = fi.Length;
 
@@ -687,9 +689,9 @@ namespace WirelessObservation.View
                     fileOffest = 0;
                 }
 
-                Vendor.SettingHelper.setting.Systemd.LastModify = lastWriteTime;
-                Vendor.SettingHelper.setting.Systemd.RecentlyFile = recentlyFile;
-                Vendor.SettingHelper.setting.Systemd.FileOffest = fileOffest;
+                SettingHelper.setting.Systemd.LastModify = lastWriteTime;
+                SettingHelper.setting.Systemd.RecentlyFile = recentlyFile;
+                SettingHelper.setting.Systemd.FileOffest = fileOffest;
             }
             
             if (IntervalCount > 8640)
@@ -826,6 +828,7 @@ namespace WirelessObservation.View
                 DateTime last = DateTime.ParseExact(mod, "yyyyMMdd", System.Globalization.CultureInfo.CurrentCulture);
                 if (last.CompareTo(DateTime.UtcNow) > 0) throw new Exception("time out of range");
                 DateTime now = SettingHelper.setting.Systemd.UtcTime ? DateTime.UtcNow : DateTime.Now;
+                string storePath = Vendor.SettingHelper.setting.Files.StorePath;
                 string jsonFile = string.Empty;
                 SetTitle(now);
                 // 设置表格时间轴
@@ -841,7 +844,7 @@ namespace WirelessObservation.View
                              where fi.Name.CompareTo(mod + ".dat") >= 0 && fi.Name.CompareTo(DateFormat(now, "yyyyMMdd") + ".dat") <= 0
                              select fi.FullName);
                 string[] datFlies = query.ToArray();
-                query = (from f in Directory.GetFiles(Vendor.SettingHelper.setting.Files.DataPath, "*.json")
+                query = (from f in Directory.GetFiles(storePath, "*.json")
                          let fi = new FileInfo(f)
                          orderby fi.LastWriteTime ascending
                          where fi.Name.CompareTo(mod + ".json") >= 0 && fi.Name.CompareTo(DateFormat(now, "yyyyMMdd") + ".json") <= 0
@@ -855,12 +858,12 @@ namespace WirelessObservation.View
                         string filestr = datFlies[i];
                         // filename.ext
                         string filename = System.IO.Path.GetFileName(filestr);
-                        
+                    string withoutExt = System.IO.Path.GetFileNameWithoutExtension(filestr);
                         // 匹配成功将文件移动至缓存文件夹
                         if (reg.Match(filename).Success)
                         {
                             lastFile = Vendor.SettingHelper.setting.Files.DataPath + "\\" + filename;
-                            jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + System.IO.Path.GetFileNameWithoutExtension(filestr) + ".json";
+                            jsonFile = storePath + "\\" + System.IO.Path.GetFileNameWithoutExtension(filestr) + ".json";
 
                             // 雷达数据文件存在
                             if (File.Exists(lastFile))
@@ -962,8 +965,8 @@ namespace WirelessObservation.View
                     // 获取最后拉取数据的时间
                     FileInfo info = new FileInfo(lastFile);
                     // 获取最后拉取文件的时间
-                    DateTime dt = info.LastWriteTime;
-                    SetTitle(dt);
+                    DateTime dt = SettingHelper.setting.Systemd.UtcTime ? info.LastWriteTimeUtc : info.LastWriteTime;
+                    
                     // 设置配置
                     Vendor.SettingHelper.setting.Systemd.LastModify = dt;
                     Vendor.SettingHelper.setting.Systemd.RecentlyFile = DateFormat(dt, "yyyyMMdd");
@@ -1021,16 +1024,16 @@ namespace WirelessObservation.View
                 string jsonData = string.Empty;
                 StreamWriter sw = null;
                 // 现在时间
-                DateTime now = DateTime.UtcNow; 
+                DateTime now = SettingHelper.setting.Systemd.UtcTime ? DateTime.UtcNow : DateTime.Now; 
                 DateTime nowMinute = new DateTime(now.Year, now.Month, now.
                     Day, now.Hour, now.Minute,0);
-                FileInfo fi = new FileInfo(Vendor.SettingHelper.setting.Files.DataPath + "\\" + string.Format("{0:yyyyMMdd}.dat", now));
+                FileInfo fi = new FileInfo(Vendor.SettingHelper.setting.Files.DataPath + "\\" + DateFormat(now, "yyyyMMdd") + ".dat");
                 DateTime Ooclock = now.Date;
                 SetTitle(now);
 
                 // 每天零时将数据清空并缓存数据至本地json文件待调用
 
-                if (now.Equals(Ooclock) && ChartData.Count > 0)
+                if (nowMinute.Equals(Ooclock) && ChartData.Count > 0)
                 {
                     DateTime yesterday = Ooclock.AddDays(-1);
                     jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + DateFormat(yesterday,"yyyyMMdd") + ".json";
@@ -1104,7 +1107,7 @@ namespace WirelessObservation.View
                     radar.SR.Close();
                     // 检查数据集中是否有高度为0时间与当前PA-XS数据相同的数据没有true 有false
                     
-                    lastWriteTime = fi.LastWriteTimeUtc;
+                    lastWriteTime = SettingHelper.setting.Systemd.UtcTime ? fi.LastWriteTimeUtc : fi.LastWriteTime;
                     recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = fi.Length;
                 }
@@ -1120,8 +1123,6 @@ namespace WirelessObservation.View
                 bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == Vendor.SettingHelper.setting.Collect.InitHeight && entity.TimeStamp.Equals(nowMinute));
                 if (chartResult && ts1.Subtract(ts2).TotalSeconds % Vendor.SettingHelper.setting.Collect.Interval == 0 )
                 {
-
-
 
                     FtAnemograph ft = new FtAnemograph(recived);
 
@@ -1152,8 +1153,6 @@ namespace WirelessObservation.View
                         sw.Close();
                     }
                 }
-
-                
 
                 Vendor.SettingHelper.setting.Systemd.LastModify = lastWriteTime;
                 Vendor.SettingHelper.setting.Systemd.RecentlyFile = recentlyFile;

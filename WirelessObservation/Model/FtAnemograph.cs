@@ -49,7 +49,7 @@ namespace WirelessObservation.Model
             else if (matchCollection.Count > 0)
             {
                 int index = matchCollection.Count - 1;
-                speed = Convert.ToDouble(matchCollection[index].Groups[1].Value);
+                speed = Convert.ToDouble(matchCollection[index].Groups[1].Value) * 100;
                 direction = Convert.ToInt32(matchCollection[index].Groups[2].Value);
             }
             windProfileRadarEntity = new WindProfileRadarEntity(height, speed, direction, fomat);
