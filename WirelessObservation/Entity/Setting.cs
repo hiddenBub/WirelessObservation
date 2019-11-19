@@ -252,6 +252,9 @@ namespace WirelessObservation.Entity
                 recentlyFile = value.Contains(".") ? value.Split(new char['.'], StringSplitOptions.RemoveEmptyEntries)[0] : value;
             }
         }
+        [XmlElement(ElementName = "TimezoneOffset")]    // 文件偏移量
+        private int timezoneOffset = 0;
+        public int TimezoneOffset { get => timezoneOffset; set => timezoneOffset = value; }
 
         [XmlElement(ElementName = "FileOffest")]    // 文件偏移量
         private long fileOffset = 0;

@@ -46,22 +46,30 @@ namespace WirelessObservation.Model
                     string[] lineArray = System.Text.RegularExpressions.Regex.Split(strLine, partten, System.Text.RegularExpressions.RegexOptions.Singleline);
                     foreach (string item in lineArray)
                     {
-                        if (!string.IsNullOrEmpty(item)) s = StringHelper.AddSonItem(s, item, i);
+                        if (!string.IsNullOrEmpty(item))
+                        {
+                            s = StringHelper.AddSonItem(s, item, i);
+                        }
                     }
                     i++;
                 }
             }
             if (SR.EndOfStream) isEOF = true;
             DateTime timeStamp = new DateTime(Convert.ToInt32(s[3][3]), Convert.ToInt32(s[3][1]), Convert.ToInt32(s[3][2]), Convert.ToInt32(s[3][4]), Convert.ToInt32(s[3][5]), 0);
+            // fix timezone
+            timeStamp = timeStamp.AddHours(SettingHelper.setting.Systemd.TimezoneOffset);
             List<List<string>> data = s.Skip(9).ToList();
             int j;
             foreach (List<string> d in data)
             {
-                if (d[2] == "-9999") continue;
+                if (d[2] == "-9999")
+                {
+                    continue;
+                }
                 WindProfileRadarEntity e = new WindProfileRadarEntity(Convert.ToDouble(d[0]), Convert.ToDouble(d[2]), Convert.ToDouble(d[3]),timeStamp);
                 echarts.Add(e);
             }
-            if (echarts.Count == 0) echarts = null;
+            
             return echarts;
         }
     }

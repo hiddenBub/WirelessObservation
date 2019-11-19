@@ -559,7 +559,7 @@ namespace WirelessObservation.View
 
                     
                     // json字符串
-                    string jsonData = JsonConvert.SerializeObject(ChartData);
+                    string jsonData = JsonConvert.SerializeObject(ChartData, Newtonsoft.Json.Formatting.Indented);
                     // 避免因为文件存在导致的冲突
                     if (File.Exists(jsonFile)) File.Delete(jsonFile);
                     // 以生成文件的方式写数据
@@ -585,7 +585,7 @@ namespace WirelessObservation.View
                 XmlHelper.SerializeToXml(App.SettingPath, Vendor.SettingHelper.setting);
                 
                 // json字符串
-                string jsonData = JsonConvert.SerializeObject(ChartData);
+                string jsonData = JsonConvert.SerializeObject(ChartData, Newtonsoft.Json.Formatting.Indented);
                 // 避免因为文件存在导致的冲突
                 if (File.Exists(jsonFile)) File.Delete(jsonFile);
                 // 以生成文件的方式写数据
@@ -629,7 +629,7 @@ namespace WirelessObservation.View
                 {
                     string jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + fi.Name + ".json";
                     // json字符串
-                    string jsonData = JsonConvert.SerializeObject(ChartData);
+                    string jsonData = JsonConvert.SerializeObject(ChartData, Newtonsoft.Json.Formatting.Indented);
                     // 避免因为文件存在导致的冲突
                     if (File.Exists(jsonFile)) File.Delete(jsonFile);
                     // 以生成文件的方式写数据
@@ -828,6 +828,7 @@ namespace WirelessObservation.View
                 DateTime last = DateTime.ParseExact(mod, "yyyyMMdd", System.Globalization.CultureInfo.CurrentCulture);
                 if (last.CompareTo(DateTime.UtcNow) > 0) throw new Exception("time out of range");
                 DateTime now = SettingHelper.setting.Systemd.UtcTime ? DateTime.UtcNow : DateTime.Now;
+                
                 string storePath = Vendor.SettingHelper.setting.Files.StorePath;
                 string jsonFile = string.Empty;
                 SetTitle(now);
@@ -851,89 +852,91 @@ namespace WirelessObservation.View
                          select fi.FullName);
                 string[] jsonFiles = query.ToArray();
                 string lastFile = string.Empty;
-                if (ChartData != null) ChartData.Clear();
-                
-                    for (int i = 0; i < datFlies.Length; i++)
-                    {
-                        string filestr = datFlies[i];
-                        // filename.ext
-                        string filename = System.IO.Path.GetFileName(filestr);
+                if (ChartData != null && ChartData.Count > 0) ChartData.Clear();
+                for (int i = 0; i < datFlies.Length; i++)
+                {
+                    
+                    DateTime tomorrowDate = new DateTime();
+                    string filestr = datFlies[i];
+                    // filename.ext
+                    string filename = System.IO.Path.GetFileName(filestr);
                     string withoutExt = System.IO.Path.GetFileNameWithoutExtension(filestr);
-                        // 匹配成功将文件移动至缓存文件夹
-                        if (reg.Match(filename).Success)
+                    // 匹配成功将文件移动至缓存文件夹
+                    if (reg.Match(filename).Success)
+                    {
+                        lastFile = Vendor.SettingHelper.setting.Files.DataPath + "\\" + filename;
+                        jsonFile = storePath + "\\" + withoutExt + ".json";
+
+                        // 雷达数据文件存在
+                        if (File.Exists(lastFile))
                         {
-                            lastFile = Vendor.SettingHelper.setting.Files.DataPath + "\\" + filename;
-                            jsonFile = storePath + "\\" + System.IO.Path.GetFileNameWithoutExtension(filestr) + ".json";
+                            // 创建雷达数据操作对象
+                            Model.WindProfileRadar radar = new Model.WindProfileRadar(lastFile, 0);
+                            // 接收是否到达文件结尾
+                            bool eof = false;
 
-                            // 雷达数据文件存在
-                            if (File.Exists(lastFile))
+
+                            List<WindProfileRadarEntity> t = new List<WindProfileRadarEntity>();
+                            while (!eof)
                             {
-                                // 创建雷达数据操作对象
-                                Model.WindProfileRadar radar = new Model.WindProfileRadar(lastFile, 0);
-                                // 接收是否到达文件结尾
-                                bool eof = false;
-
-                                int j = 0;
-                                while (!eof)
-                                {
-                                    List<WindProfileRadarEntity> t = radar.GetSectionData(out eof);
-                                    if (t != null)
-                                    {
-                                        // 将数据合并至ChartData数组
-                                        ChartData = ChartData.Union(t).ToList();
-                                        j++;
-                                    }
-                                }
-                                radar.SR.Close();
-                            }
-                            if (File.Exists(jsonFile))
-                            {
-                                StreamReader sr = new StreamReader(jsonFile, Encoding.UTF8);
-                                try
-                                {
-                                    string jsonString = sr.ReadToEnd();
-                                    List<WindProfileRadarEntity> jsonData = JsonConvert.DeserializeObject<List<WindProfileRadarEntity>>(jsonString);
-                                    List<WindProfileRadarEntity> temp = jsonData.FindAll((WindProfileRadarEntity entity) => entity.Alt == SettingHelper.setting.Collect.InitHeight);
-                                    ChartData = ChartData.Union(temp).ToList();
-                                }
-                                catch (Exception ex)
-                                {
-                                    LogHelper.WriteLog(ex);
-                                }
-                                finally
-                                {
-                                    sr.Close();
-                                }
-
+                                
+                                t.AddRange(radar.GetSectionData(out eof));
 
                             }
-                            if (ChartData.Count > 0)
+                            ChartData.AddRange(t);
+                            radar.SR.Close();
+
+                        }
+                        if (File.Exists(jsonFile))
+                        {
+                            StreamReader sr = new StreamReader(jsonFile, Encoding.UTF8);
+                            try
                             {
-                                string jsonData = JsonConvert.SerializeObject(ChartData);
-                                // 避免因为文件存在导致的冲突
-                                if (File.Exists(jsonFile)) File.Delete(jsonFile);
-                                // 以生成文件的方式写数据
-
-                                StreamWriter sw = new StreamWriter(jsonFile, false, Encoding.UTF8);
-                                try
-                                {
-                                    sw.WriteLine(jsonData);
-
-                                }
-                                catch (Exception ex)
-                                {
-                                    LogHelper.WriteLog(ex);
-                                }
-                                finally
-                                {
-                                    sw.Close();
-
-                                }
+                                string jsonString = sr.ReadToEnd();
+                                List<WindProfileRadarEntity> jsonData = JsonConvert.DeserializeObject<List<WindProfileRadarEntity>>(jsonString);
+                                List<WindProfileRadarEntity> temp = jsonData.FindAll((WindProfileRadarEntity entity) => entity.Alt == SettingHelper.setting.Collect.InitHeight && entity.TimeStamp < tomorrowDate);
+                                
+                                
+                                ChartData = ChartData.Union(temp).ToList();
                             }
+                            catch (Exception ex)
+                            {
+                                LogHelper.WriteLog(ex);
+                            }
+                            finally
+                            {
+                                sr.Close();
+                            }
+
+
+                        }
+                        if (ChartData.Count > 0)
+                        {
+                            string jsonData = JsonConvert.SerializeObject(ChartData, Newtonsoft.Json.Formatting.Indented);
+                            // 避免因为文件存在导致的冲突
+                            if (File.Exists(jsonFile)) File.Delete(jsonFile);
+                            // 以生成文件的方式写数据
+
+                            StreamWriter sw = new StreamWriter(jsonFile, false, Encoding.UTF8);
+                            try
+                            {
+                                sw.WriteLine(jsonData);
+
+                            }
+                            catch (Exception ex)
+                            {
+                                LogHelper.WriteLog(ex);
+                            }
+                            finally
+                            {
+                                sw.Close();
+
+                            }
+                        }
                         // 清空数据集中数据，待本次填充
                         if (ChartData != null) ChartData.Clear();
                     }
-                    
+
                 }
                 jsonFile = SettingHelper.setting.Files.StorePath + "\\" + DateFormat(now, "yyyyMMdd") + ".json";
                 if (File.Exists(jsonFile))
@@ -1027,41 +1030,19 @@ namespace WirelessObservation.View
                 DateTime now = SettingHelper.setting.Systemd.UtcTime ? DateTime.UtcNow : DateTime.Now; 
                 DateTime nowMinute = new DateTime(now.Year, now.Month, now.
                     Day, now.Hour, now.Minute,0);
-                FileInfo fi = new FileInfo(Vendor.SettingHelper.setting.Files.DataPath + "\\" + DateFormat(now, "yyyyMMdd") + ".dat");
+                DateTime datTime = now.AddHours(SettingHelper.setting.Systemd.TimezoneOffset * -1);
+                FileInfo fi = new FileInfo(Vendor.SettingHelper.setting.Files.DataPath + "\\" + DateFormat(datTime, "yyyyMMdd") + ".dat");
                 DateTime Ooclock = now.Date;
                 SetTitle(now);
 
                 // 每天零时将数据清空并缓存数据至本地json文件待调用
-
-                if (nowMinute.Equals(Ooclock) && ChartData.Count > 0)
+                string nowStr = nowMinute.ToString();
+                string OoclockStr = Ooclock.ToString();
+                int dataCount = ChartData.Count;
+                string firstStr = ChartData[0].TimeStamp.ToString();
+                if (nowMinute.ToString() == Ooclock.ToString() && ChartData[0].TimeStamp.CompareTo(Ooclock) < 0)
                 {
-                    DateTime yesterday = Ooclock.AddDays(-1);
-                    jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + DateFormat(yesterday,"yyyyMMdd") + ".json";
-                    // json字符串
-                    jsonData = JsonConvert.SerializeObject(ChartData);
-                    // 避免因为文件存在导致的冲突
-                    if (File.Exists(jsonFile)) File.Delete(jsonFile);
-                    // 以生成文件的方式写数据
-
-                    sw = new StreamWriter(jsonFile, false, Encoding.UTF8);
-
-                    try
-                    {
-                        // 将数据写入
-                        sw.WriteLine(jsonData);
-                    }
-                    catch(Exception  ex)
-                    {
-                        LogHelper.WriteLog(ex);
-                    }
-                    finally
-                    {
-                        sw.Close();
-                    }
-
                     ChartData.Clear();
-                    
-                    fileOffest = 0;
                 }
                 List<string> split = new List<string>();
                 
@@ -1075,19 +1056,19 @@ namespace WirelessObservation.View
                     // 雷达文件存在并且当前数据长度大于上次采集
 
                     // 创建雷达数据操作对象
-                    Model.WindProfileRadar radar = new Model.WindProfileRadar(fi.FullName, Vendor.SettingHelper.setting.Systemd.FileOffest);
+                    Model.WindProfileRadar radar = new Model.WindProfileRadar(fi.FullName, fileOffest);
                     // 接收是否到达文件结尾
                     bool eof = false;
 
                     while (!eof)
                     {
                         List<WindProfileRadarEntity> t = radar.GetSectionData(out eof);
-                        if (t.Count>0)
+                        if (t != null && t.Count>0)
                         {
                             
                             foreach (WindProfileRadarEntity en in t)
                             {
-                                bool check = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == en.Alt && entity.TimeStamp==en.TimeStamp);
+                                bool check = ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == en.Alt && entity.TimeStamp==en.TimeStamp);
                                 if (check)
                                 {
                                     t.Remove(en);
@@ -1132,7 +1113,7 @@ namespace WirelessObservation.View
                     Prototype = string.Empty;
                     jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + DateFormat(Ooclock, "yyyyMMdd") + ".json";
                     // json字符串
-                    jsonData = JsonConvert.SerializeObject(ChartData);
+                    jsonData = JsonConvert.SerializeObject(ChartData,Newtonsoft.Json.Formatting.Indented);
                     // 避免因为文件存在导致的冲突
                     if (File.Exists(jsonFile)) File.Delete(jsonFile);
                     // 以生成文件的方式写数据
