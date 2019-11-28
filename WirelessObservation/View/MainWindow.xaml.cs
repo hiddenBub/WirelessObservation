@@ -894,7 +894,7 @@ namespace WirelessObservation.View
                             {
                                 string jsonString = sr.ReadToEnd();
                                 List<WindProfileRadarEntity> jsonData = JsonConvert.DeserializeObject<List<WindProfileRadarEntity>>(jsonString);
-                                List<WindProfileRadarEntity> temp = jsonData.FindAll((WindProfileRadarEntity entity) => entity.Alt == SettingHelper.setting.Collect.InitHeight && entity.TimeStamp < tomorrowDate);
+                                List<WindProfileRadarEntity> temp = jsonData.FindAll((WindProfileRadarEntity entity) => entity.Alt == SettingHelper.setting.Collect.InitHeight);
                                 
                                 
                                 ChartData = ChartData.Union(temp).ToList();
@@ -1031,18 +1031,23 @@ namespace WirelessObservation.View
                 DateTime nowMinute = new DateTime(now.Year, now.Month, now.
                     Day, now.Hour, now.Minute,0);
                 DateTime datTime = now.AddHours(SettingHelper.setting.Systemd.TimezoneOffset * -1);
+                DateTime datMinute = new DateTime(datTime.Year, datTime.Month, datTime.
+                    Day, datTime.Hour, datTime.Minute, 0);
                 FileInfo fi = new FileInfo(Vendor.SettingHelper.setting.Files.DataPath + "\\" + DateFormat(datTime, "yyyyMMdd") + ".dat");
                 DateTime Ooclock = now.Date;
                 SetTitle(now);
-
+                
                 // 每天零时将数据清空并缓存数据至本地json文件待调用
-                string nowStr = nowMinute.ToString();
-                string OoclockStr = Ooclock.ToString();
-                int dataCount = ChartData.Count;
-                string firstStr = ChartData[0].TimeStamp.ToString();
-                if (nowMinute.ToString() == Ooclock.ToString() && ChartData[0].TimeStamp.CompareTo(Ooclock) < 0)
+
+                if (nowMinute.ToString() == Ooclock.ToString() && ChartData.Count > 0 && ChartData[0].TimeStamp.CompareTo(Ooclock) < 0)
                 {
                     ChartData.Clear();
+                }
+                if (datMinute.ToString() == Ooclock.ToString() && ChartData.Count > 0 && ChartData[0].TimeStamp.CompareTo(Ooclock) < 0)
+                {
+                    lastWriteTime = datMinute;
+                    recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
+                    fileOffest = 0;
                 }
                 List<string> split = new List<string>();
                 
