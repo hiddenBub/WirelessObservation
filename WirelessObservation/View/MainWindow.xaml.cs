@@ -1042,9 +1042,6 @@ namespace WirelessObservation.View
                 if (nowMinute.ToString() == Ooclock.ToString() && ChartData.Count > 0 && ChartData[0].TimeStamp.CompareTo(Ooclock) < 0)
                 {
                     ChartData.Clear();
-                }
-                if (datMinute.ToString() == Ooclock.ToString() && ChartData.Count > 0 && ChartData[0].TimeStamp.CompareTo(Ooclock) < 0)
-                {
                     lastWriteTime = datMinute;
                     recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = 0;
@@ -1313,7 +1310,7 @@ namespace WirelessObservation.View
             string pass = Vendor.SettingHelper.setting.Systemd.Password;
             string remotePath = Vendor.SettingHelper.setting.Systemd.RemotePath;
             int count = 0;
-            if (!string.IsNullOrEmpty(host) && !string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(pass)) return 0;
+            if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(name) || string.IsNullOrEmpty(pass)) return 0;
             SFTPHelper sftp = new SFTPHelper(host, name, pass);
             sftp.Connect();
             try
@@ -1333,9 +1330,9 @@ namespace WirelessObservation.View
                     }
                     else
                     {
-                        if (string.IsNullOrEmpty(recently) || recently.CompareTo("20190101") < 0) return 0;
+                        if (recently.CompareTo("20190101") < 0) return 0;
                         IFormatProvider ifp = new System.Globalization.CultureInfo("zh-CN", true);
-                        ;
+                       
                         if (DateTime.TryParseExact(recently, "yyyyMMdd", ifp, System.Globalization.DateTimeStyles.None, out DateTime recentTime))
                         {
                             
