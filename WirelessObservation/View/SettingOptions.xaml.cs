@@ -199,7 +199,7 @@ namespace WirelessObservation.View
 
                     var childNode = sp.Children[0];
                     string childType = childNode.GetType().Name;
-                    if (childType == "TextBox" && capacity == 2)
+                    if (childType == "TextBox")
                     {
                         TextBox textBox = childNode as TextBox;
                         Type t = settingItem.GetType().GetProperty(optionName).GetValue(settingItem, null).GetType();
