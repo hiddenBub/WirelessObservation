@@ -25,5 +25,10 @@ namespace WirelessObservation.Entity
             Speed = spd;
             Direction = dir;
         }
+
+        public WindProfileRadarEntity()
+        {
+
+        }
     }
 }

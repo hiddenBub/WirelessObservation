@@ -60,6 +60,11 @@ namespace WirelessObservation.View
         /// </summary>
         private static List<WindProfileRadarEntity> chartData = new List<WindProfileRadarEntity>();
 
+        /// <summary>
+        /// 
+        /// </summary>
+        private static List<WindProfileRadarEntity> ftDate = new List<WindProfileRadarEntity>();
+
         private static DateTime startTime;
 
         /// <summary>
@@ -1016,8 +1021,8 @@ namespace WirelessObservation.View
                 // 接收串口数据
                 //"$WI,WVP=000.0,005,0*75\r\n"
                 string recived = Encoding.Default.GetString(e.receivedBytes);
-              
-                
+
+                Prototype += recived;
                
 
                 DateTime lastWriteTime = Vendor.SettingHelper.setting.Systemd.LastModify;
@@ -1041,13 +1046,62 @@ namespace WirelessObservation.View
 
                 if (nowMinute.ToString() == Ooclock.ToString() && ChartData.Count > 0 && ChartData[0].TimeStamp.CompareTo(Ooclock) < 0)
                 {
+                    ftDate.Clear();
                     ChartData.Clear();
                     lastWriteTime = datMinute;
                     recentlyFile = DateFormat(lastWriteTime, "yyyyMMdd");
                     fileOffest = 0;
                 }
-                List<string> split = new List<string>();
+                List<string> split = Prototype.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+               
+                WindProfileRadarEntity ftTemp = new WindProfileRadarEntity();
                 
+                int splitIndex = 0;
+                while (splitIndex < split.Count && !string.IsNullOrEmpty(split[splitIndex])) 
+                {
+                    FtAnemograph ft742 = new FtAnemograph(split[splitIndex]);
+                    if (ft742.MatchCollection.Count > 0)
+                    {
+                        ftTemp = ft742.GetWindProfileRadarEntities();
+                        ftDate.Add(ftTemp);
+                        split.RemoveAt(splitIndex);
+                    }
+                    else
+                    {
+                        splitIndex++;
+                    }
+                }
+                if (split.Count > 0)
+                {
+                    Prototype = split[(split.Count - 1)];
+                }
+                else
+                {
+                    Prototype = string.Empty;
+                }
+               
+                string ftFile = Vendor.SettingHelper.setting.Files.StorePath + "\\ft_" + DateFormat(Ooclock, "yyyyMMdd") + ".json";
+                // json字符串
+                string ftData = JsonConvert.SerializeObject(ftDate, Newtonsoft.Json.Formatting.Indented);
+                // 避免因为文件存在导致的冲突
+                if (File.Exists(ftFile)) File.Delete(ftFile);
+                // 以生成文件的方式写数据
+
+                sw = new StreamWriter(ftFile, false, Encoding.UTF8);
+
+                try
+                {
+                    // 将数据写入
+                    sw.WriteLine(ftData);
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.WriteLog(ex);
+                }
+                finally
+                {
+                    sw.Close();
+                }
 
                 // 当前时间为与数据监听间隔吻合并且串口数据原型返回完整数据
                 if (fi.Exists && fi.Length > fileOffest)
@@ -1106,13 +1160,15 @@ namespace WirelessObservation.View
                 bool chartResult = !ChartData.Exists((WindProfileRadarEntity entity) => entity.Alt == Vendor.SettingHelper.setting.Collect.InitHeight && entity.TimeStamp.Equals(nowMinute));
                 if (chartResult && ts1.Subtract(ts2).TotalSeconds % Vendor.SettingHelper.setting.Collect.Interval == 0 )
                 {
-
-                    FtAnemograph ft = new FtAnemograph(recived);
-
-                    ChartData.Add(ft.GetWindProfileRadarEntities());
+                    if (ftTemp.TimeStamp != new DateTime())
+                    {
+                        ftTemp.TimeStamp = new DateTime(ftTemp.TimeStamp.Year, ftTemp.TimeStamp.Month, ftTemp.TimeStamp.Day, ftTemp.TimeStamp.Hour, ftTemp.TimeStamp.Minute, 0);
+                        ChartData.Add(ftTemp);
+                    }
+                        
                     // 读取本次需读取的雷达数据
                     browser.ExecuteScriptAsync("SetChart()");
-                    Prototype = string.Empty;
+                    
                     jsonFile = Vendor.SettingHelper.setting.Files.StorePath + "\\" + DateFormat(Ooclock, "yyyyMMdd") + ".json";
                     // json字符串
                     jsonData = JsonConvert.SerializeObject(ChartData,Newtonsoft.Json.Formatting.Indented);
@@ -1143,7 +1199,7 @@ namespace WirelessObservation.View
             }
             catch(Exception exc)
             {
-                Prototype = string.Empty;
+                
                 if (exc.Message != string.Empty)
                 {
                     LogHelper.WriteLog(exc);
@@ -1462,16 +1518,19 @@ namespace WirelessObservation.View
                     string speedRange = string.Format("{0:D}-{1:D}", threshold[index], threshold[index + 1]);
                     string timeStamp = MainWindow.DateFormat(wpre.TimeStamp, "HH时mm分");
                     string dir = WindDirection.GetFormatDir(wpre.Direction);
+                    DateTime todayOclock = SettingHelper.setting.Systemd.UtcTime ? DateTime.UtcNow.Date : DateTime.Now.Date;
                     DateTime temp = MainWindow.ChartData.Min(s => s.TimeStamp).Date;
-
+                    Console.WriteLine(wpre.TimeStamp.ToString() + " alt: " + wpre.Alt.ToString());
                     // [x,y,dir,speedRange]
                     // 当前数据有相同风速数据进入数组
                     DateTime Ooclock = temp;
                     TimeSpan ts = wpre.TimeStamp - Ooclock;
+                    double x = ts.TotalSeconds / Vendor.SettingHelper.setting.Collect.Interval;
+                    double y = wpre.Alt;
 
-                    res[index].Add(new List<string> { (ts.TotalSeconds / Vendor.SettingHelper.setting.Collect.Interval).ToString(), wpre.Alt.ToString(),
+                    res[index].Add(new List<string> { x.ToString(), y.ToString(),
                             wpre.Direction.ToString(), speedRange,
-                            (wpre.Speed / 100).ToString(), MainWindow.DateFormat(wpre.TimeStamp, "HH时mm分"),
+                            (wpre.Speed / 100).ToString(), timeStamp,
                             dir
                         });
                 }
